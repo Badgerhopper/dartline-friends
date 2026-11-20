@@ -59,10 +59,29 @@ def install(root):
       scanning: vision.motion.armed,
       boardPoints: vision.frame?.result?.boardKeypoints ?? 0,
       tips: vision.frame?.result?.tips.length ?? 0,
+      boardLocated: Boolean(vision.frame?.result),
+      possibleBoardPoints: vision.frame?.keypoints.filter((p) => p[3] >= 0 && p[3] <= 7 && p[2] >= vision.settings.boardThreshold).length ?? 0,
+      possibleTipPoints: vision.frame?.keypoints.filter((p) => p[3] === 8 && p[2] >= vision.settings.tipThreshold).length ?? 0,
       inferred: Boolean(vision.frame),
+      scanCount: vision.scanCount,
+      error: vision.error ?? null,
       status,
     }, window.location.origin);
-  }, [vision.cameraActive, vision.motion.armed, vision.frame, scoring, status]);""")
+  }, [vision.cameraActive, vision.motion.armed, vision.frame, vision.scanCount, vision.error, scoring, status]);
+
+  // A test scan can be started in the full-screen phone dock without
+  // disabling automatic recognition or accidentally publishing empty takeouts.
+  useEffect(() => {
+    if (window.parent === window) return;
+    const receiveScan = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== window.parent) return;
+      if (event.data?.type === 'dartline:scan-now') {
+        void vision.runtimeRef.current?.inferPositiveOnly();
+      }
+    };
+    window.addEventListener('message', receiveScan);
+    return () => window.removeEventListener('message', receiveScan);
+  }, [vision.runtimeRef]);""")
     # Count AI frames even when no dart or board geometry was recognized.
     hook = root/"src/client/hooks/useVisionRuntime.ts"
     replace(hook,
