@@ -23,6 +23,8 @@ The `Dockerfile` obtains InstaDarts at a fixed upstream commit, runs the origina
 
 ### Free Render deployment
 
+[**Deploy DartLine on Render Free**](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2FBadgerhopper%2Fdartline-friends) (review the Free plan before approving deployment).
+
 A [Render Blueprint](render.yaml) creates **one Free Docker web service** in Virginia, with an HTTPS domain and WebSocket support. It creates **no database, disk or paid workers**. Render automatically supplies `RENDER_EXTERNAL_URL`, which DartLine uses as its exact WebSocket-allowed public origin. `PUBLIC_ORIGIN` can override it, e.g. when using a custom HTTPS domain. For portability the Railway configuration remains supported.
 
 1. Connect the Render hosting plugin (or sign in to Render without adding a payment method).
