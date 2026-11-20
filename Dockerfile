@@ -5,7 +5,7 @@ WORKDIR /source
 ARG INSTADARTS_COMMIT=a455d7f8c5c7df2b37f7d08fefac970ec9e74ea0
 RUN git clone https://github.com/Instadarts/instadarts.git /source/instadarts && cd /source/instadarts && git checkout "$INSTADARTS_COMMIT"
 COPY . /source/dartline
-RUN python3 /source/dartline/scripts/apply_dartline.py /source/instadarts
+RUN python3 /source/dartline/scripts/apply_dartline.py /source/instadarts && python3 /source/dartline/scripts/add_phone_camera.py /source/instadarts
 WORKDIR /source/instadarts
 RUN npm ci && npm run build && npm test && npm prune --omit=dev
 

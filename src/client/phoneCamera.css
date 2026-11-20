@@ -1,0 +1,42 @@
+/* DartLine floating same-phone scoring view. Keep the iframe mounted and visible:
+   hiding a capture page can suspend getUserMedia on iOS Safari. */
+.dartline-phone-launch {
+  position:fixed; bottom:calc(14px + env(safe-area-inset-bottom, 0px)); right:14px;
+  z-index:850; border:1px solid #4dc5a1; background:#123b3d; color:white;
+  border-radius:999px; padding:11px 16px; font-size:14px; font-weight:750;
+  box-shadow:0 4px 18px #0009; cursor:pointer; max-width:calc(100vw - 20px);
+}
+.dartline-phone-dock { position:fixed; right:0; bottom:0; z-index:900; overflow:hidden;
+  box-shadow:0 0 30px #000b; background:#0d1a25; color:#f6f9fc;
+  border:1px solid #42616c; display:flex; flex-direction:column; }
+.dartline-phone-dock.is-expanded { width:100vw; height:100dvh; }
+.dartline-phone-dock.is-compact { bottom:calc(9px + env(safe-area-inset-bottom, 0px));
+  right:9px; width:min(45vw, 215px); height:235px; border-radius:12px; }
+.dartline-phone-header { height:54px; min-height:54px; display:flex; align-items:center;
+  justify-content:space-between; gap:6px; background:#142c38; padding:6px 10px; }
+.dartline-phone-dock.is-compact .dartline-phone-header { height:45px; min-height:45px;
+  padding:4px 5px; gap:1px; flex-wrap:wrap; align-content:center; }
+.dartline-phone-label { display:block; min-width:0; font-size:12px; font-weight:700; }
+.dartline-phone-label span { color:#56d9ac; }
+.dartline-phone-dock.is-compact .dartline-phone-label { font-size:10px; flex:1 1 100%; }
+.dartline-phone-actions { display:flex; gap:4px; align-items:center; }
+.dartline-phone-actions button { appearance:none; border:1px solid #53717d; color:white;
+  background:#25404f; border-radius:7px; cursor:pointer; font-size:12px; font-weight:700;
+  padding:7px 8px; white-space:nowrap; }
+.dartline-phone-dock.is-compact .dartline-phone-actions button { padding:2px 5px; font-size:10px; }
+.dartline-phone-frame { flex:none; width:100%; height:calc(100dvh - 54px);
+  background:#0b1823; border:0; }
+.dartline-phone-dock.is-compact .dartline-phone-frame { position:absolute; top:45px; left:0;
+  width:100vw; height:calc(100dvh - 54px); transform-origin:top left;
+  transform:scale(.42); pointer-events:none; }
+.dartline-phone-wait { padding:22px; text-align:center; flex:1; }
+.dartline-phone-wait button { border:1px solid #87adad; background:#25404f; color:white;
+  border-radius:8px; padding:10px; cursor:pointer; }
+.dartline-phone-compact-hint { position:absolute; bottom:1px; left:0; right:0;
+  background:#142c38df; text-align:center; font-size:9px; padding:2px; pointer-events:none; }
+.dartline-phone-error { padding:6px 10px; font-size:12px; background:#60232c; color:white; }
+@media (min-width:650px) {
+  .dartline-phone-dock.is-expanded { width:min(530px,100vw); height:min(850px,100dvh);
+    right:10px; bottom:10px; border-radius:14px; }
+  .dartline-phone-dock.is-compact { height:245px; }
+}
