@@ -51,6 +51,54 @@ def run(root):
     }))
     shutil.copyfile(BASE/'dartline-icon.svg', public/'dartline-icon.svg')
     shutil.copyfile(BASE/'DARTLINE_NOTICE.md', root/'DARTLINE_NOTICE.md')
+
+    # The upstream API integration tests explicitly iterate all installed game modes.
+    # Adapt their test setup so additional modes are actually exercised, not skipped.
+    api_test = root/'tests/unit/api.test.ts'
+    if not api_test.is_file(): raise RuntimeError('Missing upstream API integration tests')
+    replace(api_test,
+            "      expect(player.last('match_started').match.id).toBe(created.matchId);\n    }",
+            "      expect(player.last('match_started').match.id).toBe(created.matchId);\n      deleteMatch(created.matchId);\n      sweepApiRecords();\n    }")
+    replace(api_test,
+            '      expect((await created.json()).settings.modeSettings).toMatchObject(mode.defaults);',
+            "      const payload = await created.json();\n      expect(payload.settings.modeSettings).toMatchObject(mode.defaults);\n      deleteApiMatch('a', payload.matchId);")
+    replace(api_test,
+            """      if (mode === 'x01') finishByScoring(restored);
+      else {
+        if (mode === 'count-up') restored.send({ type: 'add_dart', dart: { x: 500_000, y: 726_000 } });
+        restored.send({ type: 'submit_visit' });
+      }""",
+            """      if (mode === 'x01') finishByScoring(restored);
+      else {
+        const sectorOrder = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+        const at = (number: number, radius = 320_000) => {
+          const angle = sectorOrder.indexOf(number) * Math.PI / 10;
+          return { x: 500_000 + Math.round(Math.sin(angle) * radius), y: 500_000 + Math.round(Math.cos(angle) * radius) };
+        };
+        if (mode === 'count-up') restored.send({ type: 'add_dart', dart: { x: 500_000, y: 726_000 } });
+        if (mode === 'around-the-clock') {
+          const visitIndex = getMatch(created.matchId)!.visits.length;
+          for (let i = 0; i < 3; i++) {
+            const target = visitIndex * 3 + i + 1;
+            if (target > 21) break;
+            restored.send({ type: 'add_dart', dart: target === 21 ? { x: 500_000, y: 500_000 } : at(target) });
+          }
+        }
+        if (mode === 'cricket') {
+          const visitIndex = getMatch(created.matchId)!.visits.length;
+          if (visitIndex < 2) {
+            const targetNumbers = [20, 19, 18, 17, 16, 15];
+            for (let i = 0; i < 3; i++) {
+              restored.send({ type: 'add_dart', dart: at(targetNumbers[visitIndex * 3 + i], 227_000) });
+            }
+          } else {
+            restored.send({ type: 'add_dart', dart: { x: 500_000, y: 500_000 } });
+            restored.send({ type: 'add_dart', dart: { x: 500_000, y: 525_000 } });
+          }
+        }
+        restored.send({ type: 'submit_visit' });
+      }""")
+
     print('DartLine overlay installed')
 if __name__ == '__main__':
     try: run(pathlib.Path(sys.argv[1]).resolve())
