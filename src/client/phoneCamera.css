@@ -39,6 +39,10 @@
   border-radius:8px; padding:10px; cursor:pointer; }
 .dartline-phone-compact-hint { position:absolute; bottom:1px; left:0; right:0;
   background:#142c38df; text-align:center; font-size:9px; padding:2px; pointer-events:none; }
+.dartline-scan-controls { padding:6px 10px; background:#102531; }
+.dartline-scan-controls button { width:100%; appearance:none; border:1px solid #52d6b0;
+  background:#164c45; color:white; border-radius:8px; padding:11px; cursor:pointer;
+  font-size:13px; font-weight:750; }
 .dartline-phone-error { padding:6px 10px; font-size:12px; background:#60232c; color:white; }
 @media (min-width:650px) {
   .dartline-phone-dock.is-expanded { width:min(530px,100vw); height:min(850px,100dvh);
