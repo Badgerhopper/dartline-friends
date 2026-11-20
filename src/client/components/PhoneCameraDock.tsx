@@ -105,7 +105,12 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
           <span>{explanation}</span>
         </div>
       )}
-      {expanded && report?.cameraActive && (
+      {expanded && !report && code !== null && (
+        <div className="dartline-phone-diagnostics" role="status">
+          Waiting for scoring camera diagnostics. Start the camera in the panel below.
+        </div>
+      )}
+      {expanded && code !== null && (
         <div className="dartline-scan-controls">
           <button type="button" onClick={() => frame.current?.contentWindow?.postMessage(
             { type: 'dartline:scan-now' }, window.location.origin
