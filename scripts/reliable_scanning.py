@@ -63,16 +63,31 @@ def install(root):
       status,
     }, window.location.origin);
   }, [vision.cameraActive, vision.motion.armed, vision.frame, scoring, status]);""")
-    # Reinforce the meaning of these numbers in the expanded camera screen.
+    # Count AI frames even when no dart or board geometry was recognized.
+    hook = root/"src/client/hooks/useVisionRuntime.ts"
+    replace(hook,
+      "  const [frame, setFrame] = useState<FrameInfo | null>(null);",
+      "  const [frame, setFrame] = useState<FrameInfo | null>(null);\n  const [scanCount, setScanCount] = useState(0);")
+    replace(hook,
+      "        setFrame(info);",
+      "        setFrame(info);\n        setScanCount((count) => count + 1);")
+    replace(hook,
+      "    frame,\n    settings,",
+      "    frame,\n    scanCount,\n    settings,")
+    # The original manual button was disabled whenever auto-scanning was armed.
     camera=root/"src/client/pages/scorer/CameraPanel.tsx"
+    replace(camera,
+      '            <Button variant="default" onClick={() => void vision.runtimeRef.current?.infer()} disabled={!vision.motion.canTrigger}>',
+      '            <Button variant="default" onClick={() => void vision.runtimeRef.current?.inferPositiveOnly()} disabled={!vision.cameraActive}>')
     replace(camera,"          <FrameInfo vision={vision} />",
       """          <FrameInfo vision={vision} />
           <Text fz="xs" c="dimmed">
-            Board points confirm alignment. Tips count darts recognized in the last image,
-            not necessarily darts credited to the match. Keep the camera linked to your turn.
+            Completed AI scans: {vision.scanCount}. Board points show whether the
+            board was located; tips show recognized darts. A live picture by
+            itself is not proof that the AI is recognizing anything.
           </Text>""")
-    # An explicit public build marker lets us verify that Render picked up this revision.
-    public_dir = root / "public"
+    # An explicit public build marker lets us verify the deployed Vite asset.
+    public_dir = root / "src/client/public"
     public_dir.mkdir(parents=True, exist_ok=True)
     (public_dir / "dartline-build.txt").write_text(
         "dartline-safe-scan-2026-11-20-v2\n", encoding="utf-8")
