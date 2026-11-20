@@ -7,7 +7,12 @@ type ScorerReport = {
   scanning: boolean;
   boardPoints: number;
   tips: number;
+  boardLocated: boolean;
+  possibleBoardPoints: number;
+  possibleTipPoints: number;
   inferred: boolean;
+  scanCount: number;
+  error: string | null;
   status: string;
 };
 
@@ -41,10 +46,18 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
       if (typeof data.cameraActive !== 'boolean' || typeof data.scoring !== 'boolean'
         || typeof data.scanning !== 'boolean' || typeof data.boardPoints !== 'number'
         || typeof data.tips !== 'number' || typeof data.inferred !== 'boolean'
+        || typeof data.boardLocated !== 'boolean'
+        || typeof data.possibleBoardPoints !== 'number'
+        || typeof data.possibleTipPoints !== 'number'
+        || typeof data.scanCount !== 'number'
+        || !(data.error === null || typeof data.error === 'string')
         || typeof data.status !== 'string') return;
       setReport({
         cameraActive: data.cameraActive, scoring: data.scoring, scanning: data.scanning,
-        boardPoints: data.boardPoints, tips: data.tips, inferred: data.inferred, status: data.status,
+        boardPoints: data.boardPoints, tips: data.tips, inferred: data.inferred,
+        boardLocated: data.boardLocated, possibleBoardPoints: data.possibleBoardPoints,
+        possibleTipPoints: data.possibleTipPoints, scanCount: data.scanCount,
+        error: data.error, status: data.status,
       });
     };
     window.addEventListener('message', receive);
@@ -63,13 +76,17 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
     : report?.cameraActive && report.scoring ? 'Camera connected to match'
     : cameraActive ? 'Camera on · not scoring' : connected ? 'Camera setup'
     : 'Connecting to game server';
-  const details = report?.inferred
-    ? `${report.boardPoints} board points · ${report.tips} tips in latest scan`
-    : 'Waiting for first AI scan';
-  const explanation = report && !report.scoring
-    ? 'Not assigned to a player yet. Start a match and check camera pairing.'
-    : report?.scanning ? 'Automatic and backup dart scans enabled'
-    : 'Automatic scanning is off';
+  const details = !report?.inferred ? 'AI has not completed a scan yet'
+    : report.boardLocated
+      ? `${report.boardPoints} board points · ${report.tips} dart tips recognized`
+      : `Board not located · ${report.possibleBoardPoints} usable board markers · ${report.possibleTipPoints} tip candidates`;
+  const explanation = !report?.cameraActive ? 'The camera is not running.'
+    : report.error ? 'AI error: ' + report.error
+    : !report.inferred ? 'Use Test AI recognition to check that model inference runs.'
+    : !report.boardLocated ? 'Center and zoom the entire dartboard. Change the phone angle or lighting if needed.'
+    : !report.scoring ? 'Board detection is separate from scoring. Start a match and check camera assignment.'
+    : report.tips === 0 ? 'Board located, but no dart tip recognized in the latest image.'
+    : 'Darts detected by AI. If the score stays unchanged, check that this camera is assigned to the match.';
   return (
     <section aria-label="DartLine phone camera" className={'dartline-phone-dock '+(expanded?'is-expanded':'is-compact')}>
       <div className="dartline-phone-header">
@@ -84,7 +101,15 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
       {expanded && report && (
         <div className="dartline-phone-diagnostics" role="status" aria-live="polite">
           <strong>{details}</strong>
+          <span>Completed AI scans: {report.scanCount} · {report.scanning ? 'Automatic scanning on' : 'Automatic scanning off'}</span>
           <span>{explanation}</span>
+        </div>
+      )}
+      {expanded && report?.cameraActive && (
+        <div className="dartline-scan-controls">
+          <button type="button" onClick={() => frame.current?.contentWindow?.postMessage(
+            { type: 'dartline:scan-now' }, window.location.origin
+          )}>Test AI recognition now</button>
         </div>
       )}
       {cameraError && <div className="dartline-phone-error" role="alert">{cameraError}</div>}
