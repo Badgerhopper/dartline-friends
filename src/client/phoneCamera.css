@@ -24,8 +24,13 @@
   background:#25404f; border-radius:7px; cursor:pointer; font-size:12px; font-weight:700;
   padding:7px 8px; white-space:nowrap; }
 .dartline-phone-dock.is-compact .dartline-phone-actions button { padding:2px 5px; font-size:10px; }
-.dartline-phone-frame { flex:none; width:100%; height:calc(100dvh - 54px);
+.dartline-phone-frame { flex:1; min-height:0; width:100%; height:auto;
   background:#0b1823; border:0; }
+.dartline-phone-diagnostics { padding:7px 10px; background:#142c38;
+  display:flex; flex-direction:column; gap:2px; font-size:11px;
+  border-bottom:1px solid #47616b; }
+.dartline-phone-diagnostics strong { color:#a7ebce; }
+.dartline-phone-diagnostics span { color:#c3d2d9; }
 .dartline-phone-dock.is-compact .dartline-phone-frame { position:absolute; top:45px; left:0;
   width:100vw; height:calc(100dvh - 54px); transform-origin:top left;
   transform:scale(.42); pointer-events:none; }
