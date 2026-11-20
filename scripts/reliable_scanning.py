@@ -72,8 +72,10 @@ def install(root):
             not necessarily darts credited to the match. Keep the camera linked to your turn.
           </Text>""")
     # An explicit public build marker lets us verify that Render picked up this revision.
-    (root/"src/client/public/dartline-build.txt").write_text(
-        "dartline-safe-scan-2026-11-20-v2\n",encoding="utf-8")
+    public_dir = root / "public"
+    public_dir.mkdir(parents=True, exist_ok=True)
+    (public_dir / "dartline-build.txt").write_text(
+        "dartline-safe-scan-2026-11-20-v2\n", encoding="utf-8")
     print("DartLine positive-only backup recognition and diagnostics enabled")
 if __name__=="__main__":
     try: install(Path(sys.argv[1]).resolve())
