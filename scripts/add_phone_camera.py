@@ -173,6 +173,16 @@ import { loadIdentity, saveSettings as savePhoneSettings } from './lib/scorerSto
     replace(dock,
         "  if (!enabled) {\n    return (",
         "  if (!enabled) {\n    if (!showLauncher) return null;\n    return (")
+
+    # Update the separate scorer's language without changing its protocol/UI flow.
+    scorer_join = root/"src/client/pages/scorer/JoinView.tsx"
+    replace(scorer_join,
+            "In InstaDarts, open the top bar and choose <em>Pair scoring device</em>.",
+            "In DartLine, use the main screen's <em>Use this iPhone as the scoring camera</em> option, or pair a separate device from Cameras.")
+    replace(home,
+            "        <Text c=\"dimmed\" fz=\"lg\">Automatic darts scoring. Play live with your friends.</Text>",
+            "        <Text c=\"dimmed\" fz=\"lg\">Automatic darts scoring. Play live with your friends.</Text>\n        <Text c=\"dimmed\" fz=\"sm\">Choose your phone camera, line up the board, then host or join a game.</Text>")
+
     print("DartLine same-phone setup installed.")
 
 if __name__ == "__main__":

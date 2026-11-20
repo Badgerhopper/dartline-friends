@@ -1,18 +1,33 @@
 # DartLine Friends Edition
 
-Private friend groups can play darts online using iPhone camera scoring, built on the open-source [InstaDarts](https://github.com/Instadarts/instadarts) AI camera model and real-time match server.
+Personal-use AI darts scoring and remote matches for friends. Based on the open-source [InstaDarts](https://github.com/Instadarts/instadarts) trained camera model and WebSocket match engine, with DartLine additions.
 
-## Added by DartLine
-- Standard Cricket and Cut-Throat Cricket, 20–15 plus bull
-- Around the Clock 1 through 20, optional bull finish; singles/doubles/triples
-- Friends-first welcome, iPhone home-screen metadata, DartLine branding
-- Existing upstream x01 games (301, 501, 701), private join codes, score correction, camera calibration and WebSocket synchronization
+## Quick start: **one iPhone**
+1. Open **https://dartline-friends-production.up.railway.app/** in Safari.
+2. Tap **Use this iPhone as the scoring camera**. DartLine will request a pairing code internally and connect the camera automatically: no other phone or QR scanner is needed.
+3. Follow camera permission, device self-test and board alignment in the full-height scorer panel. Mount the phone securely to the side of the board, outside the path of stray darts.
+4. Tap **Show game**. The scoring camera remains visible and mounted in a floating inset; the match screen can now be used on the same phone.
+5. Choose **Host Friends Game**, add yourself and share the invitation code. Your friend opens the same site, chooses **Join Friends Game**, and follows the same camera setup.
+6. If a camera score is misread, use the existing **Undo** and manual board correction before removing darts. The camera will normally advance after darts are removed.
 
-## Deploy
-The Dockerfile clones the pinned InstaDarts revision, applies changes from scripts/apply_dartline.py, builds/tests the combined app, and starts the persistent server. Use a long-running HTTPS/WSS host such as Railway with a public domain. Railway sets PORT and RAILWAY_PUBLIC_DOMAIN automatically. Game server uses HTTP behind the HTTPS proxy.
+The app also supports separate camera and match devices using **Cameras → Pair scoring device**.
 
-## Important limitations
-**Not yet validated on real iPhones.** The inherited InstaDarts system uses a phone as the camera scorer and another screen for the match. Combined single-phone camera and scoreboard is a separate feature not implemented here. Real-world camera accuracy and remote board video (which may require TURN on restrictive networks) need real-device testing. Server games are ephemeral and will not survive a process restart.
+## Included game modes
+- 301, 501, 701 with double-in/double-out rules
+- Standard Cricket and Cut-Throat Cricket (20–15 + bull)
+- Around the Clock (1–20, optional bull finish and ring requirement)
+- Original InstaDarts Whac-A-Mole practice mode
 
-## License
-AGPL-3.0-only; see DARTLINE_NOTICE.md. Complete reproducible source is this repository plus the precise upstream commit specified in Dockerfile. The app must display original notices and make corresponding source available to remote users.
+## Deployment
+The `Dockerfile` obtains InstaDarts at a fixed upstream commit, runs the original DartLine overlay and the single-phone overlay, compiles TypeScript, runs unit and integration tests, then serves a persistent Node/WebSocket server. `PUBLIC_ORIGIN` should be a precise public HTTPS URL. Railway supplies the deployment port. The web domain must route to that port.
+
+## Verification status
+- Production TypeScript build: passes.
+- Automated tests: **1,290 passing** for the current application revision, including three single-phone URL tests.
+- Railway deployment: successful, HTTPS routing and health check configured.
+- **Not yet established:** camera detection accuracy with a physical dartboard, iOS Safari same-phone iframe camera behavior on specific devices, and an actual internet match with two physically separate iPhones. Those require real-device testing. Network video may require additional TURN support in some home networks. Live scores do not depend on peer video.
+- The server keeps matches in memory; a server restart ends current matches. This is intentional for private short matches but does not constitute a persistent league leaderboard.
+- As a web app, no App Store installation is required. The user can choose Safari → Share → Add to Home Screen.
+
+## License and attribution
+The app and extensions are **AGPL-3.0-only**. See [DARTLINE_NOTICE.md](DARTLINE_NOTICE.md). The complete reproducible corresponding source is this repository plus the exact upstream commit recorded in the Dockerfile. Original model, training work, license files, third-party notices and credits remain attributable to InstaDarts.
