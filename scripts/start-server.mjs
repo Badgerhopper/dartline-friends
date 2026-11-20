@@ -1,11 +1,11 @@
-/* Railway HTTPS reverse proxy -> local HTTP and WebSockets. */
+/* Railway or Render HTTPS reverse proxy -> local HTTP and WebSockets. */
 import { writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 const port = Number.parseInt(process.env.PORT || '3000', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65535) {
   console.error('Invalid PORT'); process.exit(1);
 }
-const raw = process.env.PUBLIC_ORIGIN || process.env.RAILWAY_PUBLIC_DOMAIN || '';
+const raw = process.env.PUBLIC_ORIGIN || process.env.RENDER_EXTERNAL_URL || process.env.RAILWAY_PUBLIC_DOMAIN || '';
 let origin = null;
 if (raw) {
   try {
@@ -13,7 +13,7 @@ if (raw) {
     if (url.protocol !== 'https:' || url.pathname !== '/' || url.search || url.hash || !url.hostname) throw Error();
     origin = url.origin;
   } catch {
-    console.error('Invalid PUBLIC_ORIGIN/RAILWAY_PUBLIC_DOMAIN'); process.exit(1);
+    console.error('Invalid PUBLIC_ORIGIN/RENDER_EXTERNAL_URL/RAILWAY_PUBLIC_DOMAIN'); process.exit(1);
   }
 }
 const config = {

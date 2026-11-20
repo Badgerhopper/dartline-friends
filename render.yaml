@@ -1,0 +1,20 @@
+# DartLine Friends, a single free Docker web service.
+# This blueprint creates NO paid services, databases, disks, or workers.
+# IMPORTANT: In the Render dashboard, choose/verify the Free instance plan.
+# No payment method is needed. Free services may sleep/restart and lose active
+# in-memory matches; saved league statistics require separate persistent storage.
+services:
+  - type: web
+    name: dartline-friends
+    runtime: docker
+    plan: free
+    region: virginia
+    repo: https://github.com/Badgerhopper/dartline-friends
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_ENV
+        value: production

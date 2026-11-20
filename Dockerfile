@@ -14,5 +14,5 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /source/instadarts /app
 COPY --from=builder /source/dartline/scripts/start-server.mjs /app/dartline-start.mjs
-EXPOSE 3000
+EXPOSE 10000
 CMD ["node", "/app/dartline-start.mjs"]

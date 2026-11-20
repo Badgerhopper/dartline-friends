@@ -19,7 +19,21 @@ The app also supports separate camera and match devices using **Cameras → Pair
 - Original InstaDarts Whac-A-Mole practice mode
 
 ## Deployment
-The `Dockerfile` obtains InstaDarts at a fixed upstream commit, runs the original DartLine overlay and the single-phone overlay, compiles TypeScript, runs unit and integration tests, then serves a persistent Node/WebSocket server. `PUBLIC_ORIGIN` should be a precise public HTTPS URL. Railway supplies the deployment port. The web domain must route to that port.
+The `Dockerfile` obtains InstaDarts at a fixed upstream commit, runs the original DartLine overlay and the single-phone overlay, compiles TypeScript, runs unit and integration tests, then serves a persistent Node/WebSocket server. The `PORT` environment variable controls its local HTTP listener.
+
+### Free Render deployment
+
+A [Render Blueprint](render.yaml) creates **one Free Docker web service** in Virginia, with an HTTPS domain and WebSocket support. It creates **no database, disk or paid workers**. Render automatically supplies `RENDER_EXTERNAL_URL`, which DartLine uses as its exact WebSocket-allowed public origin. `PUBLIC_ORIGIN` can override it, e.g. when using a custom HTTPS domain. For portability the Railway configuration remains supported.
+
+1. Connect the Render hosting plugin (or sign in to Render without adding a payment method).
+2. Import the public GitHub repo **Badgerhopper/dartline-friends** as a Blueprint, using `render.yaml`.
+3. Verify the service shows **Free** and is not attached to any paid compute, persistent disk or database.
+4. Confirm the deployment health check passes, the app homepage loads, and live games can connect using its `onrender.com` domain.
+5. **Only after verifying Render works**, shut down the old DartLine Railway service. The repository stays in GitHub.
+
+The Blueprint intentionally disables automatic redeploys to avoid consuming free build minutes on every commit. Deploy new code manually when you intentionally update it.
+
+Free Render services sleep after 15 idle minutes, and a wake-up can take about a minute. They can restart unexpectedly; DartLine stores active matches only in server memory, so a restart ends them. Free service limits are not a warranty against bills when a payment method is attached: Render may charge for excess bandwidth and build pipeline minutes. Do not attach a payment method if you want hard no-charge suspension on limits. See [Render free-tier rules](https://render.com/docs/free).
 
 ## Verification status
 - Production TypeScript build: passes.
