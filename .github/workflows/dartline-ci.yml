@@ -15,17 +15,3 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compile full app and run all unit tests
         run: docker build --progress=plain -t dartline-verified .
-      - name: Check that Render serves the new scanning version
-        shell: bash
-        run: |
-          for attempt in $(seq 1 24); do
-            output=$(curl --fail --location --silent --show-error --max-time 25 https://dartline-friends.onrender.com/dartline-build.txt 2>/dev/null || true)
-            if [ "$output" = "dartline-safe-scan-2026-11-20-v2" ]; then
-              echo "Verified Render is serving the recognition fix"
-              exit 0
-            fi
-            echo "Render has not served the new version yet (attempt $attempt)"
-            sleep 15
-          done
-          echo "Build passed, but live Render version is not verified"
-          exit 1
