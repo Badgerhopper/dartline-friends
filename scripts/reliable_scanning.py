@@ -21,8 +21,26 @@ def install(root):
     replace(runtime,"  async function infer() {","  async function infer(publishEmpty = true) {")
     replace(runtime,"      const runner = await ensureModel();","      let runner = await ensureModel();")
     replace(runtime,"      const { outputs, preprocessMode } = await runner.run(video, inputSize(), { forceCpuPreprocessing });",
-      "      let { outputs, preprocessMode } = await runner.run(video, inputSize(), { forceCpuPreprocessing });")
+      """      let outcome: Awaited<ReturnType<ModelRunner['run']>>;
+      try {
+        outcome = await runner.run(video, inputSize(), { forceCpuPreprocessing });
+      } catch (gpuError) {
+        if (forceCpuInference) throw gpuError;
+        forceCpuInference = true;
+        forceCpuPreprocessing = true;
+        modelNeedsReload = true;
+        onStatus({ stage: 'model', text: 'GPU recognition failed; using CPU compatibility mode' });
+        runner = await ensureModel();
+        outcome = await runner.run(video, inputSize(), { forceCpuPreprocessing: true });
+      }
+      let { outputs, preprocessMode } = outcome;""")
     replace(runtime,"      const keypoints = predictions[0];","      let keypoints = predictions[0];")
+    replace(runtime,
+      "      if (!outputs || outputs.length < 2) return [];",
+      "      if (!outputs) outputs = [];")
+    replace(runtime,
+      "      const predictions = postprocess(outputs[0], outputs[1], inputSize());",
+      "      const predictions = outputs.length >= 2 ? postprocess(outputs[0], outputs[1], inputSize()) : [[] as Keypoint[]];")
     replace(runtime,"done: inferFrame(cameraSession)","done: inferFrame(cameraSession, publishEmpty)")
     replace(runtime,"async function inferFrame(session: number): Promise<BoardTip[]> {","async function inferFrame(session: number, publishEmpty: boolean): Promise<BoardTip[]> {")
     replace(runtime,
