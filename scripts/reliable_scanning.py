@@ -10,12 +10,42 @@ def replace(path, old, new):
     path.write_text(s.replace(old,new,1),encoding="utf-8")
 def install(root):
     shutil.copyfile(BASE/"src/client/lib/scanAssist.ts",root/"src/client/lib/scanAssist.ts")
+    shutil.copyfile(BASE/"src/client/lib/boardRecovery.ts",root/"src/client/lib/boardRecovery.ts")
+    shutil.copyfile(BASE/"tests/unit/dartline-board-recovery.test.ts",root/"tests/unit/dartline-board-recovery.test.ts")
     shutil.copyfile(BASE/"tests/unit/dartline-scan-assist.test.ts",root/"tests/unit/dartline-scan-assist.test.ts")
     runtime=root/"src/client/vision/visionRuntime.ts"
+    replace(runtime,
+      "import { processPredictions, type PipelineResult } from './predictionPipeline';",
+      "import type { PipelineResult } from './predictionPipeline';\nimport { recoverBoard } from '../lib/boardRecovery';")
     replace(runtime,"  infer: () => Promise<BoardTip[]>;","  infer: () => Promise<BoardTip[]>;\n  /** Backup recognition must never send an empty takeout. */\n  inferPositiveOnly: () => Promise<BoardTip[]>;")
     replace(runtime,"  async function infer() {","  async function infer(publishEmpty = true) {")
+    replace(runtime,"      const runner = await ensureModel();","      let runner = await ensureModel();")
+    replace(runtime,"      const { outputs, preprocessMode } = await runner.run(video, inputSize(), { forceCpuPreprocessing });",
+      "      let { outputs, preprocessMode } = await runner.run(video, inputSize(), { forceCpuPreprocessing });")
+    replace(runtime,"      const keypoints = predictions[0];","      let keypoints = predictions[0];")
     replace(runtime,"done: inferFrame(cameraSession)","done: inferFrame(cameraSession, publishEmpty)")
     replace(runtime,"async function inferFrame(session: number): Promise<BoardTip[]> {","async function inferFrame(session: number, publishEmpty: boolean): Promise<BoardTip[]> {")
+    replace(runtime,
+      "      const result = processPredictions(keypoints, boardThreshold, tipThreshold, lensCalibration);",
+      """      let result = recoverBoard(keypoints, boardThreshold, tipThreshold, lensCalibration);
+      // A silent bad WebGPU output can contain no valid board points but raise
+      // no exception. Retry *the same camera* with CPU inference and CPU
+      // preprocessing instead of asking the user to switch settings manually.
+      // Switch only once per runtime: repeated model recompilation is expensive.
+      if (!result && !forceCpuInference && session === cameraSession) {
+        forceCpuInference = true;
+        forceCpuPreprocessing = true;
+        modelNeedsReload = true;
+        onStatus({ stage: 'model', text: 'Using CPU recognition compatibility mode' });
+        runner = await ensureModel();
+        const cpu = await runner.run(video, inputSize(), { forceCpuPreprocessing: true });
+        if (session !== cameraSession) return [];
+        if (cpu.outputs && cpu.outputs.length >= 2) {
+          keypoints = postprocess(cpu.outputs[0], cpu.outputs[1], inputSize())[0];
+          result = recoverBoard(keypoints, boardThreshold, tipThreshold, lensCalibration);
+          preprocessMode = cpu.preprocessMode;
+        }
+      }""")
     replace(runtime,"      onTips(tips);\n      return tips;","      if (tips.length > 0 || publishEmpty) onTips(tips);\n      return tips;")
     replace(runtime,"    motion,\n    infer,","    motion,\n    infer,\n    inferPositiveOnly: () => infer(false),")
     scorer=root/"src/client/pages/scorer/ScorerPage.tsx"
