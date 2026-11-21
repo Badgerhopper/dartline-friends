@@ -157,7 +157,7 @@ def install(root):
     public_dir = root / "src/client/public"
     public_dir.mkdir(parents=True, exist_ok=True)
     (public_dir / "dartline-build.txt").write_text(
-        "dartline-safe-scan-2026-11-20-v2\n", encoding="utf-8")
+        "dartline-auto-recovery-2026-11-20-v3\n", encoding="utf-8")
     print("DartLine positive-only backup recognition and diagnostics enabled")
 if __name__=="__main__":
     try: install(Path(sys.argv[1]).resolve())
