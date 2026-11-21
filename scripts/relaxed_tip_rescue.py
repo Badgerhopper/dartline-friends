@@ -62,6 +62,9 @@ import { StableTipRescue, mergeRescuedTips, RELAXED_TIP_THRESHOLD } from '../lib
     unit=root/'tests/unit/dartline-scan-assist.test.ts'
     replace(unit,"expect(ASSIST_INTERVAL_MS).toBeGreaterThanOrEqual(2000);",
         "expect(ASSIST_INTERVAL_MS).toBeGreaterThanOrEqual(1000);")
+    # Distinct public marker to distinguish deployed code from a stale Render build.
+    (root/'src/client/public/dartline-build.txt').write_text(
+        'dartline-tip-rescue-2026-11-21-v4\n', encoding='utf-8')
     print('Stable dart-tip rescue installed; strong detections unchanged.')
 
 if __name__=='__main__':
