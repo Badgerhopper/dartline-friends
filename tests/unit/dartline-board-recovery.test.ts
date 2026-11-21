@@ -5,7 +5,7 @@ import { REFERENCE_POINTS } from '../../src/shared/vision/homography';
 import type { Keypoint } from '../../src/shared/vision/types';
 
 function coherentBoard(confidence = 0.62): Keypoint[] {
-  return REFERENCE_POINTS.map(([x, y], i) => [
+  return REFERENCE_POINTS.map(([x, y], i): Keypoint => [
     0.1 + x / BOARD_MAX * 0.8,
     0.9 - y / BOARD_MAX * 0.8,
     confidence, i,
@@ -26,7 +26,7 @@ describe('DartLine low-confidence board recovery', () => {
     expect(recoverBoard(coherentBoard(0.2), 0.85, 0.8, 0)).toBeNull();
   });
   it('rejects a tight cluster of otherwise coherent markers', () => {
-    const clustered: Keypoint[] = coherentBoard().map((p) => [
+    const clustered: Keypoint[] = coherentBoard().map((p): Keypoint => [
       0.49 + p[0] * 0.02, 0.49 + p[1] * 0.02, p[2], p[3],
     ]);
     expect(recoverBoard(clustered, 0.85, 0.8, 0)).toBeNull();
