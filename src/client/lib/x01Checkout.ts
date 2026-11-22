@@ -34,7 +34,7 @@ function quality(path: readonly CheckoutShot[], remaining: number): number {
     points += remaining > 100
       ? shot.ring === 'T' ? shot.points * .45 : shot.ring === 'S' ? shot.points * .06 : -4
       : shot.ring === 'S' ? 10 + shot.points * .15 : shot.ring === 'T' ? 6 + shot.points * .1 : -5;
-    if (shot.label === 'T20') points += remaining > 90 ? 8 : -1;
+    if (shot.label === 'T20') points += remaining > 90 ? 8 + (path.length - i) * .4 : -1;
   }
   return points;
 }
