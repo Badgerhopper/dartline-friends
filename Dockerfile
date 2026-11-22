@@ -7,7 +7,13 @@ RUN git clone https://github.com/Instadarts/instadarts.git /source/instadarts &&
 COPY . /source/dartline
 RUN python3 /source/dartline/scripts/apply_dartline.py /source/instadarts && python3 /source/dartline/scripts/add_phone_camera.py /source/instadarts && python3 /source/dartline/scripts/reliable_scanning.py /source/instadarts && python3 /source/dartline/scripts/relaxed_tip_rescue.py /source/instadarts && python3 /source/dartline/scripts/mobile_experience.py /source/instadarts
 WORKDIR /source/instadarts
-RUN npm ci && npm run build && npm test && npm prune --omit=dev
+# Render production builds avoid running 1300+ tests in a constrained build container.
+# GitHub CI explicitly opts in to the full test suite before this can be deployed.
+ARG RUN_TESTS=0
+RUN npm ci
+RUN npm run build
+RUN if [ "$RUN_TESTS" = "1" ]; then npm test; fi
+RUN npm prune --omit=dev
 
 FROM node:22.22.0-bookworm-slim
 WORKDIR /app

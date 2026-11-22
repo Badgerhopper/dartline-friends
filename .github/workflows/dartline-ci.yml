@@ -14,7 +14,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Compile full app and run all unit tests
-        run: docker build --progress=plain -t dartline-verified .
+        run: docker build --build-arg RUN_TESTS=1 --progress=plain -t dartline-verified .
+      - name: Smoke-test production server startup and HTTP health
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name dartline-ci-smoke -e PORT=10000 \
+            -p 127.0.0.1:13455:10000 dartline-verified
+          trap 'docker logs dartline-ci-smoke; docker rm -f dartline-ci-smoke >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 35); do
+            if curl --fail --silent --max-time 3 -o /dev/null http://127.0.0.1:13455/; then
+              echo "DartLine production container started and served HTTP"
+              exit 0
+            fi
+            if [ "$(docker inspect --format '{{.State.Running}}' dartline-ci-smoke)" != "true" ]; then
+              echo "Production container stopped during startup"
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "Production container failed HTTP health check"
+          exit 1
       - name: Check which version is actually live on Render (informational)
         continue-on-error: true
         shell: bash
