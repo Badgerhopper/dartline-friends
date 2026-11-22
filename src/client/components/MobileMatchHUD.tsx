@@ -55,7 +55,8 @@ export function MobileMatchHUD({
   const remaining = Number(score);
   const dartsAvailable = Math.max(0, view.dartsPerVisit - darts.length);
   const doubleOut = match.settings.modeSettings.doubleOut !== false;
-  const waitingForDoubleIn = Boolean(view.notice && /double.in required/i.test(textOf(view.notice)));
+  const waitingForDoubleIn = Boolean(view.notice && /double.in required/i.test(textOf(view.notice)))
+    && !darts.some(d => d.score.mult === 2 || d.score.label === 'DB');
   const routes = useMemo(() =>
     match.settings.mode === 'x01' && Number.isInteger(remaining) && !waitingForDoubleIn
       ? checkoutSuggestions({ remaining, dartsAvailable, doubleOut })
