@@ -63,6 +63,23 @@ export class StableTipRescue {
       }
       matched.add(best);
       const item = next[best];
+      // The first weak location can be off by a few mm. Before the dart is
+      // confirmed, average successive weak sightings so the ring position
+      // is less sensitive to one noisy frame. High-confidence sightings
+      // stay anchored to avoid re-scoring the same existing dart.
+      const wasUnconfirmed = item.hits < (item.peakConfidence >= VERY_WEAK_THRESHOLD
+        ? STANDARD_CONFIRMATIONS : VERY_WEAK_CONFIRMATIONS);
+      if (wasUnconfirmed && item.peakConfidence < 0.8) {
+        if (tip.confidence >= 0.8) {
+          item.anchor = { ...tip };
+        } else {
+          item.anchor = {
+            x: Math.round((item.anchor.x * item.hits + tip.x) / (item.hits + 1)),
+            y: Math.round((item.anchor.y * item.hits + tip.y) / (item.hits + 1)),
+            confidence: Math.max(item.anchor.confidence, tip.confidence),
+          };
+        }
+      }
       item.hits += 1;
       item.lastSeen = now;
       item.peakConfidence = Math.max(item.peakConfidence, tip.confidence);
