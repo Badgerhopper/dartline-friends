@@ -17,6 +17,7 @@ def install(root: Path):
     files=[
         ('src/client/components/MobileMatchHUD.tsx','src/client/components/MobileMatchHUD.tsx'),
         ('src/client/lib/manualCorrection.ts','src/client/lib/manualCorrection.ts'),
+        ('src/client/lib/useIsMobileMatch.ts','src/client/lib/useIsMobileMatch.ts'),
         ('src/client/mobileMatch.css','src/client/mobileMatch.css'),
         ('tests/unit/dartline-manual-correction.test.ts','tests/unit/dartline-manual-correction.test.ts'),
         ('tests/unit/dartline-close-darts.test.ts','tests/unit/dartline-close-darts.test.ts'),
@@ -29,7 +30,10 @@ def install(root: Path):
     page=root/'src/client/pages/MatchScreen.tsx'
     replace(page,
         "import { VisitInput } from '../components/VisitInput';",
-        "import { VisitInput } from '../components/VisitInput';\nimport { MobileMatchHUD } from '../components/MobileMatchHUD';")
+        "import { VisitInput } from '../components/VisitInput';\nimport { MobileMatchHUD } from '../components/MobileMatchHUD';\nimport { useIsMobileMatch } from '../lib/useIsMobileMatch';")
+    replace(page,
+        "  const currentPlayer = match.players[match.currentPlayerIndex];",
+        "  const isMobile = useIsMobileMatch();\n  const currentPlayer = match.players[match.currentPlayerIndex];")
     replace(page,
         """  return (
     <ResponsiveBoxGrid
@@ -39,10 +43,9 @@ def install(root: Path):
       items={items}
     />
   );""",
-        """  return (
-    <>
-      <div className="dartline-mobile-match">
-        <MobileMatchHUD
+        """  return isMobile ? (
+    <div className="dartline-mobile-match">
+      <MobileMatchHUD
           match={match}
           view={view}
           panel={panel}
@@ -60,15 +63,15 @@ def install(root: Path):
           onDeclineVideo={onDeclineVideo}
         />
       </div>
-      <div className="dartline-desktop-match">
-        <ResponsiveBoxGrid
-          key="match-live"
-          profile="match-live"
-          defaultLayouts={LIVE_MATCH_LAYOUTS}
-          items={items}
-        />
-      </div>
-    </>
+  ) : (
+    <div className="dartline-desktop-match">
+      <ResponsiveBoxGrid
+        key="match-live"
+        profile="match-live"
+        defaultLayouts={LIVE_MATCH_LAYOUTS}
+        items={items}
+      />
+    </div>
   );""")
 
     main=root/'src/client/main.tsx'
