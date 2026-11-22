@@ -75,8 +75,8 @@ function connect(){
 }
 afterEach(()=>{
   for (const ws of openSockets.splice(0)) {handleClientLeave(ws);removeClient(ws);}
-  for (const m of getAllMatches()) deleteMatch(m.id);
-  for (const l of getAllLobbies()) deleteLobby(l.id);
+  for (const [id] of getAllMatches()) deleteMatch(id);
+  for (const [id] of getAllLobbies()) deleteLobby(id);
 });
 
 describe('DartLine correction socket security and actual game state',()=>{
