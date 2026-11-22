@@ -59,6 +59,8 @@
     font-size:11px; font-weight:700; padding:8px 4px; }
   .dartline-hud-board { margin-top:10px; background:#142631;
     border:1px solid #365362; padding:6px; border-radius:11px; }
+  .dartline-hud-game-stats { margin-top:8px; background:#122631; border-radius:10px;
+    border:1px solid #365362; padding:10px; max-height:45dvh; overflow:auto; }
   .dartline-hud-history { margin-top:8px; font-size:12px;
     border:1px solid #365362; border-radius:8px; padding:8px 12px;
     max-height:140px; overflow-y:auto; }

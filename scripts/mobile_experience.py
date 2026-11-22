@@ -45,6 +45,7 @@ def install(root: Path):
         <MobileMatchHUD
           match={match}
           view={view}
+          panel={panel}
           isMyTurn={isMyTurn}
           isSpectator={isSpectator}
           canAddDart={canAddDart}

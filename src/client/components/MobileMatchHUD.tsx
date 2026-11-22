@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Button, Modal, NativeSelect } from '@mantine/core';
-import type { DartThrow, MatchState, ModeView } from '../../shared/types';
+import type { DartThrow, MatchState, ModePanel, ModeView } from '../../shared/types';
 import { textOf } from '../../shared/types';
 import { correctedDart, type ManualRing } from '../lib/manualCorrection';
 import { VirtualBoard } from './VirtualBoard';
+import { ModePanelBlock } from './ModePanelBlock';
 import type { LiveBoardView } from './VirtualBoard';
 import type { VideoFeedView } from '../hooks/useVideoFeed';
 import type { VideoFeedId } from '../../shared/media';
@@ -11,6 +12,7 @@ import type { VideoFeedId } from '../../shared/media';
 interface Props {
   match: MatchState;
   view: ModeView;
+  panel?: ModePanel;
   isMyTurn: boolean;
   isSpectator: boolean;
   canAddDart: boolean;
@@ -31,7 +33,7 @@ interface Props {
  * The original desktop grid stays intact for wide screens.
  */
 export function MobileMatchHUD({
-  match, view, isMyTurn, isSpectator, canAddDart,
+  match, view, panel, isMyTurn, isSpectator, canAddDart,
   onLeave, onAddDart, onUndoDart, onSubmitVisit,
   liveBoard, straightenVideo, videoOffers, onAcceptVideo, onDeclineVideo,
 }: Props) {
@@ -40,6 +42,7 @@ export function MobileMatchHUD({
   const [ring, setRing] = useState<ManualRing>('triple');
   const [boardOpen, setBoardOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const current = match.players[match.currentPlayerIndex];
   const darts = match.currentVisit?.darts ?? [];
   const active = !isSpectator && isMyTurn;
@@ -109,10 +112,20 @@ export function MobileMatchHUD({
         <button type="button" onClick={() => setBoardOpen(v=>!v)} aria-expanded={boardOpen}>
           {boardOpen ? '▴ Hide board' : '🎯 Show board / add missed dart'}
         </button>
+        {panel && (
+          <button type="button" onClick={() => setStatsOpen(v=>!v)} aria-expanded={statsOpen}>
+            {statsOpen ? '▴ Hide stats' : '▾ Game stats'}
+          </button>
+        )}
         <button type="button" onClick={() => setDetailsOpen(v=>!v)} aria-expanded={detailsOpen}>
-          {detailsOpen ? '▴ Hide history' : '▾ Visit history'}
+          {detailsOpen ? '▴ Hide history' : '▾ History'}
         </button>
       </div>
+      {panel && statsOpen && (
+        <div className="dartline-hud-game-stats">
+          <ModePanelBlock modeId={match.settings.mode} panel={panel} />
+        </div>
+      )}
       {boardOpen && (
         <div className="dartline-hud-board">
           <VirtualBoard
