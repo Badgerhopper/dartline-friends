@@ -22,6 +22,7 @@ type Props = {
   code: string | null; // null = waiting for pairing code; '' = resume existing pairing
   cameraActive: boolean;
   cameraError?: string;
+  inMatch: boolean;
   onEnable: () => void;
   onDisable: () => void;
   onRetry: () => void;
@@ -33,9 +34,20 @@ type Props = {
  * run in the browser background. Source is held stable when panel size changes.
  * Camera permission remains under the user's control inside the scorer frame.
  */
-export function PhoneCameraDock({ enabled, connected, code, cameraActive, cameraError,
+export function PhoneCameraDock({ enabled, connected, code, cameraActive, cameraError, inMatch,
   onEnable, onDisable, onRetry }: Props) {
   const [view, setView] = useState<'setup' | 'preview' | 'hidden'>('setup');
+  // The match HUD owns the camera reopen control while the preview is hidden.
+  useEffect(() => {
+    const open = () => setView('setup');
+    const hide = () => setView('hidden');
+    window.addEventListener('dartline:open-camera', open);
+    window.addEventListener('dartline:hide-camera', hide);
+    return () => {
+      window.removeEventListener('dartline:open-camera', open);
+      window.removeEventListener('dartline:hide-camera', hide);
+    };
+  }, []);
   const [position, setPosition] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('dartline_camera_position_v1') ?? 'null');
@@ -132,8 +144,10 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
     : report.tips === 0 ? 'Board located, but no dart tip recognized in the latest image.'
     : 'Darts detected by AI. If the score stays unchanged, check that this camera is assigned to the match.';
   return (
-    <section aria-label="DartLine phone camera" className={'dartline-phone-dock is-'+view}
-      style={view === 'setup' ? undefined : { left: position.x, top: position.y }}>
+    <section aria-label="DartLine phone camera" className={'dartline-phone-dock is-'+view+(inMatch?' dartline-in-match':'')}
+      style={view === 'setup' ? undefined
+        : view === 'hidden' && inMatch ? {left: 1, top: 1}
+        : { left: position.x, top: position.y }}>
       <div className="dartline-phone-header">
         {view !== 'setup' && (
           <button type="button" className="dartline-drag-handle" aria-label="Drag camera window"
@@ -144,7 +158,8 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
         <div className="dartline-phone-actions">
           {view === 'setup' ? (
             <>
-              <button type="button" onClick={() => setView('preview')}>Show game</button>
+              <button type="button" onClick={() => setView('hidden')}>Show game · Hide camera</button>
+              <button type="button" onClick={() => setView('preview')}>Preview</button>
               <button type="button" onClick={onDisable} aria-label="Stop this phone's camera">Stop</button>
             </>
           ) : view === 'preview' ? (
@@ -191,7 +206,7 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
             referrerPolicy="same-origin"
             className="dartline-phone-frame"
           />}
-      {view === 'preview' && <span className="dartline-phone-compact-hint">Drag ⠿ to move · Hide for a tiny button</span>}
+      {view === 'preview' && <span className="dartline-phone-compact-hint">Drag ⠿ to move · Hide to clear the game</span>}
     </section>
   );
 }

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button, Modal, NativeSelect } from '@mantine/core';
 import type { DartThrow, MatchState, ModePanel, ModeView } from '../../shared/types';
 import { textOf } from '../../shared/types';
 import { correctedDart, type ManualRing } from '../lib/manualCorrection';
+import { checkoutSuggestions } from '../lib/x01Checkout';
 import { VirtualBoard } from './VirtualBoard';
 import { ModePanelBlock } from './ModePanelBlock';
 import type { LiveBoardView } from './VirtualBoard';
@@ -51,6 +52,17 @@ export function MobileMatchHUD({
   const total = textOf(view.visitTotal);
   const canCorrect = active && darts.length > 0;
   const canSubmit = active && !Boolean(view.autoSubmit);
+  const remaining = Number(score);
+  const dartsAvailable = Math.max(0, view.dartsPerVisit - darts.length);
+  const doubleOut = match.settings.modeSettings.doubleOut !== false;
+  const waitingForDoubleIn = Boolean(view.notice && /double.in required/i.test(textOf(view.notice)));
+  const routes = useMemo(() =>
+    match.settings.mode === 'x01' && Number.isInteger(remaining) && !waitingForDoubleIn
+      ? checkoutSuggestions({ remaining, dartsAvailable, doubleOut })
+      : [],
+    [match.settings.mode, remaining, dartsAvailable, doubleOut, waitingForDoubleIn],
+  );
+  const openCamera = () => window.dispatchEvent(new Event('dartline:open-camera'));
 
   const applyCorrection = () => {
     if (!canCorrect) return;
@@ -70,10 +82,13 @@ export function MobileMatchHUD({
     <section className="dartline-mobile-hud" aria-label="DartLine mobile scoreboard">
       <div className="dartline-hud-top">
         <div className="dartline-hud-brand">
-          <span className="dartline-hud-eyebrow">DARTLINE · {textOf(view.headline)}</span>
+          <span className="dartline-hud-eyebrow">DARTLINE v2.3 · {textOf(view.headline)}</span>
           <strong>{current?.name ?? 'Dart match'} {isMyTurn ? <em>YOUR TURN</em> : <em>THROWING</em>}</strong>
         </div>
-        <button type="button" onClick={onLeave} className="dartline-hud-leave">Leave</button>
+        <div className="dartline-hud-top-actions">
+          <button type="button" onClick={openCamera} className="dartline-hud-camera" aria-label="Open camera setup">📷 Camera</button>
+          <button type="button" onClick={onLeave} className="dartline-hud-leave">Leave</button>
+        </div>
       </div>
 
       <div className="dartline-hud-score-row">
@@ -108,6 +123,22 @@ export function MobileMatchHUD({
         </div>
       </div>
 
+      {match.settings.mode === 'x01' && Number.isInteger(remaining) && remaining > 0 && remaining <= 170 && (
+        <div className="dartline-hud-checkout" aria-label="X01 checkout suggestions" aria-live="polite">
+          <span className="dartline-hud-checkout-caption">🎯 CHECKOUT · {dartsAvailable} {dartsAvailable===1?'DART':'DARTS'} LEFT</span>
+          {waitingForDoubleIn ? (
+            <strong>Double-in required first</strong>
+          ) : routes.length ? (
+            <>
+              <strong>{routes[0].darts.join(' → ')}</strong>
+              {routes.length > 1 && <small>Other routes: {routes.slice(1).map(r => r.darts.join(' → ')).join('  |  ')}</small>}
+            </>
+          ) : (
+            <strong>{dartsAvailable === 0 ? 'Submit this visit' : 'No finish with darts left. Set up a double.'}</strong>
+          )}
+        </div>
+      )}
+      <div className="dartline-hud-extras">
       <div className="dartline-hud-secondary">
         <button type="button" onClick={() => setBoardOpen(v=>!v)} aria-expanded={boardOpen}>
           {boardOpen ? '▴ Hide board' : '🎯 Show board / add missed dart'}
@@ -143,6 +174,7 @@ export function MobileMatchHUD({
         </div>
       )}
 
+      </div>
       <div className="dartline-hud-actions" role="group" aria-label="Throw controls">
         <Button variant="light" color="gray" disabled={!active || darts.length===0} onClick={onUndoDart}>↶ Undo</Button>
         <Button variant="light" color="yellow" disabled={!canCorrect} onClick={()=>{

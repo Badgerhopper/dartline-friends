@@ -80,3 +80,21 @@
   .dartline-phone-dock.is-setup { width:min(530px,100vw); height:min(850px,100dvh);
     top:auto; left:auto; right:10px; bottom:10px; border-radius:14px; }
 }
+
+
+/* v2.3: No floating camera pane or button over an active match.
+   Leave the same-origin iframe mounted and barely in the viewport, rather
+   than display:none (which can suspend a Safari capture document). The
+   permanent Camera button in the fixed mobile HUD reopens full setup. */
+.dartline-phone-dock.is-hidden.dartline-in-match {
+  width:3px; height:3px; border:0; border-radius:0; background:transparent;
+  box-shadow:none; overflow:hidden; pointer-events:none; opacity:.06;
+}
+.dartline-phone-dock.is-hidden.dartline-in-match .dartline-phone-header {
+  display:none;
+}
+.dartline-phone-dock.is-hidden.dartline-in-match .dartline-phone-frame {
+  position:absolute; left:0; top:0; width:100vw; height:100dvh;
+  transform-origin:top left; transform:scale(.035);
+  opacity:1; pointer-events:none;
+}

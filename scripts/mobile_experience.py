@@ -17,9 +17,11 @@ def install(root: Path):
     files=[
         ('src/client/components/MobileMatchHUD.tsx','src/client/components/MobileMatchHUD.tsx'),
         ('src/client/lib/manualCorrection.ts','src/client/lib/manualCorrection.ts'),
+        ('src/client/lib/x01Checkout.ts','src/client/lib/x01Checkout.ts'),
         ('src/client/lib/useIsMobileMatch.ts','src/client/lib/useIsMobileMatch.ts'),
         ('src/client/mobileMatch.css','src/client/mobileMatch.css'),
         ('tests/unit/dartline-manual-correction.test.ts','tests/unit/dartline-manual-correction.test.ts'),
+        ('tests/unit/dartline-x01-checkout.test.ts','tests/unit/dartline-x01-checkout.test.ts'),
         ('tests/unit/dartline-close-darts.test.ts','tests/unit/dartline-close-darts.test.ts'),
     ]
     for src,dest in files:
@@ -86,6 +88,11 @@ def install(root: Path):
       // clustering accidentally merged tight same-camera groups.
       if (!c.observations.some((o) => o.deviceId === tip.deviceId)
           && dist < THROW_WINDOW_DART_RADIUS && dist < nearestDist) {""")
+
+    # Distinct, durable deployment marker. It must advance with this UI release;
+    # the older marker still reads v5 even when the match UI was rebuilt.
+    (root/'src/client/public/dartline-build.txt').write_text(
+        'dartline-compact-match-checkout-2026-11-22-v2.3\n', encoding='utf-8')
 
     print('DartLine compact mobile match controls and close-dart fusion installed')
 

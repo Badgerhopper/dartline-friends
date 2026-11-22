@@ -127,6 +127,7 @@ import { loadIdentity, saveSettings as savePhoneSettings } from './lib/scorerSto
         code={phonePairCode}
         cameraActive={Boolean(localPhoneDevice?.online && localPhoneDevice.cameraActive)}
         cameraError={localPhoneDevice?.cameraError}
+        inMatch={Boolean(match?.status === 'in_progress')}
         showLauncher={window.location.pathname !== '/'}
         onEnable={useThisPhone}
         onDisable={stopThisPhone}
