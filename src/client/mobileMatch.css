@@ -53,7 +53,10 @@
 .dartline-hud-round-label strong {font-size:13px; color:#ffd793;}
 .dartline-hud-dart-row {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px;}
 .dartline-hud-dart {display:flex; flex-direction:column; gap:3px;
-  align-items:center; min-width:0; padding:5px 3px; background:#203747; border-radius:7px;}
+  align-items:center; min-width:0; padding:5px 3px; background:#203747; border-radius:7px;
+  border:1px solid #335468; color:#f6fcff; cursor:pointer; touch-action:manipulation;}
+.dartline-hud-dart:not(:disabled) {border-color:#56cba4; background:#20453e;}
+.dartline-hud-dart:disabled {opacity:.85; cursor:default;}
 .dartline-hud-dart small {font-size:9px; color:#a7bbc8; font-weight:800;}
 .dartline-hud-dart strong {font-size:14px; overflow:hidden; max-width:100%;
   white-space:nowrap; text-overflow:ellipsis;}
@@ -91,3 +94,25 @@
   .dartline-hud-checkout {padding:5px 8px;}
   .dartline-hud-actions button {height:43px;}
 }
+
+/* Camera status is visible even when the live camera image is hidden. */
+.dartline-hud-camera-health {font-size:9px; font-weight:750; padding:5px 4px;
+  border-radius:6px; min-width:0; max-width:112px; text-align:center; line-height:1.3;}
+.dartline-hud-camera-health.is-scanning {background:#173d32; color:#94e9b6;}
+.dartline-hud-camera-health.is-warning {background:#4d3020; color:#ffd6a4;}
+
+/* The original virtual board's size-query container needs a resolved width and
+   height. It otherwise computes a 0px board inside our auto-height mobile panel. */
+.dartline-hud-board {
+  width:min(90vw,66dvh,500px); height:min(90vw,66dvh,500px);
+  margin:0 auto; padding:0; display:block;
+  overflow:hidden; background:#132737; border:1px solid #477083;
+  border-radius:10px; box-sizing:border-box;
+}
+.dartline-hud-board .frontend-board-area {
+  width:100%; height:100%; min-height:0;
+  container-type:size; display:grid; place-items:center;
+}
+.dartline-hud-hint {font-size:12px; line-height:1.45; color:var(--mantine-color-dimmed);
+  margin:9px auto 0; max-width:500px; text-align:center;}
+.dartline-hud-correction .mantine-InputWrapper-root {width:100%;}

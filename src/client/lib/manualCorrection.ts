@@ -7,6 +7,12 @@ export type ManualRing = 'single' | 'double' | 'triple';
 export function correctedDart(sector: string, ring: ManualRing): DartThrow {
   const radii = boardRadii(BOARD_MAX);
   let x = BOARD_CENTER, y = BOARD_CENTER;
+  if (sector === 'MISS') {
+    if (ring !== 'single') throw new Error('A miss has no multiplier');
+    // Outside the scoring double ring, but still in the canonical board space.
+    const score = scoreFromBoardCoords(0, 0);
+    return { x: 0, y: 0, score };
+  }
   if (sector === 'BULL') {
     if (ring === 'triple') throw new Error('There is no triple bull');
     // Inner bull is a point at centre; single bull is an annulus around it.

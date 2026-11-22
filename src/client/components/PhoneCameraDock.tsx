@@ -108,6 +108,10 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
         || typeof data.scanCount !== 'number'
         || !(data.error === null || typeof data.error === 'string')
         || typeof data.status !== 'string') return;
+      window.dispatchEvent(new CustomEvent('dartline:camera-health', {detail: {
+        cameraActive: data.cameraActive, scoring: data.scoring,
+        scanning: data.scanning, scanCount: data.scanCount,
+      }}));
       setReport({
         cameraActive: data.cameraActive, scoring: data.scoring, scanning: data.scanning,
         boardPoints: data.boardPoints, tips: data.tips, inferred: data.inferred,

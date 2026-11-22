@@ -5,7 +5,7 @@ WORKDIR /source
 ARG INSTADARTS_COMMIT=a455d7f8c5c7df2b37f7d08fefac970ec9e74ea0
 RUN git clone https://github.com/Instadarts/instadarts.git /source/instadarts && cd /source/instadarts && git checkout "$INSTADARTS_COMMIT"
 COPY . /source/dartline
-RUN python3 /source/dartline/scripts/apply_dartline.py /source/instadarts && python3 /source/dartline/scripts/add_phone_camera.py /source/instadarts && python3 /source/dartline/scripts/reliable_scanning.py /source/instadarts && python3 /source/dartline/scripts/relaxed_tip_rescue.py /source/instadarts && python3 /source/dartline/scripts/mobile_experience.py /source/instadarts
+RUN python3 /source/dartline/scripts/apply_dartline.py /source/instadarts && python3 /source/dartline/scripts/add_phone_camera.py /source/instadarts && python3 /source/dartline/scripts/reliable_scanning.py /source/instadarts && python3 /source/dartline/scripts/relaxed_tip_rescue.py /source/instadarts && python3 /source/dartline/scripts/mobile_experience.py /source/instadarts && python3 /source/dartline/scripts/targeted_correction.py /source/instadarts
 WORKDIR /source/instadarts
 # Render production builds avoid running 1300+ tests in a constrained build container.
 # GitHub CI explicitly opts in to the full test suite before this can be deployed.

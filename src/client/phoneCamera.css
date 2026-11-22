@@ -98,3 +98,25 @@
   transform-origin:top left; transform:scale(.035);
   opacity:1; pointer-events:none;
 }
+
+/* Full-size inference underlay. The old 3px/0.035 scale hidden iframe could
+   make Safari throttle rendering and the AI. Keep the iframe at its real
+   dimensions and rendered behind the opaque match HUD instead. No video or
+   controls cover the playing field. Camera setup still opens above everything. */
+.dartline-phone-dock.is-hidden.dartline-in-match {
+  position:fixed!important; left:0!important; top:0!important; right:0!important;
+  bottom:0!important; width:100vw!important; height:100dvh!important;
+  z-index:420!important; background:transparent!important; border:0!important;
+  border-radius:0!important; opacity:1!important; box-shadow:none!important;
+  pointer-events:none!important; overflow:hidden!important;
+}
+.dartline-phone-dock.is-hidden.dartline-in-match .dartline-phone-header,
+.dartline-phone-dock.is-hidden.dartline-in-match .dartline-phone-compact-hint {
+  display:none!important;
+}
+.dartline-phone-dock.is-hidden.dartline-in-match .dartline-phone-frame {
+  position:absolute!important; left:0!important; top:0!important;
+  width:100vw!important; height:100dvh!important;
+  transform:none!important; opacity:1!important; pointer-events:none!important;
+  display:block!important;
+}
