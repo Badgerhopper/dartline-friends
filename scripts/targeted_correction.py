@@ -120,12 +120,9 @@ function handleSubmitVisit(ws: WebSocket): void {""")
   const correctDart = useCallback((index: number, expectedDartId: string, dart: DartThrow) => {
     send({ type: 'correct_dart', index, expectedDartId, dart });
   }, [send]);""")
-    # DartThrow already exists in the hook imports? ensure explicitly typed.
-    source=use_match.read_text(encoding='utf-8')
-    if not "import type { DartThrow } from '../" in source and "DartThrow" not in source.split('\n',10)[0:10]:
-        replace(use_match,
-            "import { useCallback",
-            "import type { DartThrow } from '../../shared/types';\nimport { useCallback")
+    replace(use_match,
+        "import type { MatchState, Lobby, ModePanel, ModeView, Player, RematchAnswer } from '../../shared/types';",
+        "import type { MatchState, Lobby, ModePanel, ModeView, Player, RematchAnswer, DartThrow } from '../../shared/types';")
     replace(use_match,
         "    undoDart,\n    submitVisit,",
         "    undoDart,\n    correctDart,\n    submitVisit,")
