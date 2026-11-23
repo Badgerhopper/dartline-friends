@@ -116,3 +116,89 @@
 .dartline-hud-hint {font-size:12px; line-height:1.45; color:var(--mantine-color-dimmed);
   margin:9px auto 0; max-width:500px; text-align:center;}
 .dartline-hud-correction .mantine-InputWrapper-root {width:100%;}
+
+/* Remote opponent turn: server-driven switch, with live board or virtual fall-back.
+ * This is deliberately read-only. The active player keeps all scoring controls. */
+.dartline-remote-turn {
+  box-sizing:border-box; width:100%; max-width:680px; height:100%;
+  margin:0 auto; padding:8px 10px max(8px, env(safe-area-inset-bottom, 0px));
+  display:flex; flex-direction:column; gap:8px; min-height:0; overflow:hidden;
+  background:#0c1924; color:#edf7f7; font-variant-numeric:tabular-nums;
+}
+.dartline-remote-top {flex:0 0 auto; display:flex; align-items:center;
+  justify-content:space-between; gap:8px;}
+.dartline-remote-top > div {display:flex; flex-direction:column; gap:2px; min-width:0;}
+.dartline-remote-eyebrow {color:#88dcb9; font-size:10px; font-weight:850;
+  letter-spacing:.08em;}
+.dartline-remote-top strong {font-size:18px; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis;}
+.dartline-remote-top button {background:#1a3342; border:1px solid #3c5965;
+  padding:6px 10px; border-radius:8px; color:#dce7ed; font-size:12px;}
+.dartline-remote-scores {display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  flex:0 0 auto;}
+.dartline-remote-score {min-height:79px; padding:9px 10px; border-radius:12px;
+  border:1px solid #385568; background:#152836; display:flex;
+  flex-direction:column; justify-content:center; gap:3px; min-width:0;}
+.dartline-remote-score.is-opponent {border-color:#54cfa8;
+  background:linear-gradient(135deg,#124438,#1c3a42);}
+.dartline-remote-score small {color:#a8bfc6; font-size:9px; font-weight:850;
+  letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.dartline-remote-score strong {font-size:clamp(36px,11vw,57px);
+  line-height:1.08; color:white;}
+.dartline-remote-score-line {display:flex; align-items:center; gap:6px;
+  justify-content:space-between;}
+.dartline-remote-score-line span {font-size:10px; color:#b6d0d5;}
+.dartline-remote-main {flex:1 1 auto; min-height:0; overflow-y:auto;
+  overscroll-behavior:contain; -webkit-overflow-scrolling:touch; display:flex;
+  flex-direction:column; align-items:stretch; gap:7px;}
+.dartline-remote-camera-bar {display:flex; align-items:center; justify-content:space-between;
+  gap:8px; flex:0 0 auto; min-height:29px;}
+.dartline-remote-camera-bar strong {font-size:11px; letter-spacing:.06em;
+  color:#c7f4df;}
+.dartline-remote-board {width:min(94vw, 43dvh, 460px); height:min(94vw, 43dvh, 460px);
+  box-sizing:border-box; align-self:center; border:1px solid #386075;
+  border-radius:12px; background:#0c1b29; flex:0 0 auto; overflow:hidden;
+  box-shadow:0 6px 20px #0007;}
+.dartline-remote-board .frontend-board-area {height:100%; width:100%;
+  min-height:0; container-type:size; display:grid; place-items:center;}
+.dartline-remote-feed-state {text-align:center; margin:0; font-size:11px;
+  min-height:19px; line-height:1.35; color:#c8bca4; flex:0 0 auto;}
+.dartline-remote-feed-state.is-live {color:#75e7b6;}
+.dartline-remote-visit {border:1px solid #405e6a; background:#132734;
+  border-radius:10px; padding:8px; flex:none;}
+.dartline-remote-visit-title {display:flex; align-items:center; justify-content:space-between;
+  gap:5px; font-size:12px; margin-bottom:6px;}
+.dartline-remote-visit-title strong {color:#ffdfa4;}
+.dartline-remote-darts {display:grid; grid-template-columns:repeat(3,1fr);
+  gap:6px;}
+.dartline-remote-darts > div {display:flex; flex-direction:column; align-items:center;
+  gap:3px; min-width:0; padding:6px 4px; background:#23404b; border-radius:7px;}
+.dartline-remote-darts small {font-size:9px; font-weight:800; color:#bbd0d8;}
+.dartline-remote-darts strong {font-size:14px; color:#fff; overflow:hidden;
+  text-overflow:ellipsis; max-width:100%; white-space:nowrap;}
+.dartline-remote-stat-row {display:grid; grid-template-columns:repeat(3, 1fr);
+  gap:6px; flex:none;}
+.dartline-remote-stat-row > div {background:#172f38; border:1px solid #29444b;
+  border-radius:8px; padding:7px 5px; display:flex; align-items:center;
+  flex-direction:column; gap:3px; text-align:center; min-width:0;}
+.dartline-remote-stat-row small {font-size:9px; line-height:1.2;
+  color:#bdd4d4; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+.dartline-remote-stat-row strong {font-size:16px; color:#d8ffef;}
+.dartline-remote-more {align-self:center; border:1px solid #3a5b65;
+  background:#19333f; color:#d4e9ee; padding:8px 16px; border-radius:8px;
+  font-size:11px; font-weight:800; flex:none;}
+.dartline-remote-detail {padding:8px; border:1px solid #3c5964;
+  border-radius:9px; min-height:0; max-height:45dvh; overflow-y:auto;
+  background:#142936; flex:none;}
+.dartline-remote-bottom {flex:0 0 auto; border-top:1px solid #3e5c65;
+  background:#142734; padding:9px; border-radius:10px;
+  display:flex; flex-direction:column; align-items:center; text-align:center; gap:3px;}
+.dartline-remote-bottom span {color:#b6f5d7; font-size:13px; font-weight:800;}
+.dartline-remote-bottom small {color:#aac6d0; font-size:10px;}
+@media(max-height:700px) {
+  .dartline-remote-turn {gap:5px; padding-top:4px;}
+  .dartline-remote-scores .dartline-remote-score {min-height:64px; padding:6px 8px;}
+  .dartline-remote-scores strong {font-size:36px;}
+  .dartline-remote-board {width:min(90vw, 38dvh, 400px);
+    height:min(90vw, 38dvh, 400px);}
+}

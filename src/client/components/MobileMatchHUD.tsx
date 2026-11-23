@@ -6,6 +6,8 @@ import { correctedDart, type ManualRing } from '../lib/manualCorrection';
 import { checkoutSuggestions } from '../lib/x01Checkout';
 import { VirtualBoard } from './VirtualBoard';
 import { ModePanelBlock } from './ModePanelBlock';
+import { OpponentTurnView } from './OpponentTurnView';
+import { remoteTurnOpponent } from '../lib/remoteTurn';
 import type { LiveBoardView } from './VirtualBoard';
 import type { VideoFeedView } from '../hooks/useVideoFeed';
 import type { VideoFeedId } from '../../shared/media';
@@ -15,6 +17,7 @@ interface Props {
   view: ModeView;
   panel?: ModePanel;
   isMyTurn: boolean;
+  ownPlayerIds: readonly string[];
   isSpectator: boolean;
   canAddDart: boolean;
   onLeave: () => void;
@@ -35,7 +38,7 @@ interface Props {
  * The original desktop grid stays intact for wide screens.
  */
 export function MobileMatchHUD({
-  match, view, panel, isMyTurn, isSpectator, canAddDart,
+  match, view, panel, isMyTurn, ownPlayerIds, isSpectator, canAddDart,
   onLeave, onAddDart, onUndoDart, onCorrectDart, onSubmitVisit,
   liveBoard, straightenVideo, videoOffers, onAcceptVideo, onDeclineVideo,
 }: Props) {
@@ -116,17 +119,30 @@ export function MobileMatchHUD({
       window.clearInterval(ticker);
     };
   }, []);
+  const remoteOpponent = remoteTurnOpponent(match, ownPlayerIds, isSpectator);
   const cameraText = !cameraReport?.cameraActive ? 'Camera inactive'
     : !cameraReport.scoring ? 'Camera not assigned'
     : !cameraReport.scanning ? 'Auto scan off'
     : clock - cameraReport.lastScan > 8500 ? 'AI stalled · open camera'
     : 'AI scanning';
 
+  // Turn changes arrive with the authoritative match state over WebSocket.
+  // Recompute from the active player's board, never from a client-side timer.
+  // A single-board match or a player who owns both local slots stays on the
+  // usual scoring screen, while the remote board is read-only.
+  if (remoteOpponent) {
+    return <OpponentTurnView match={match} view={view} panel={panel}
+      opponent={remoteOpponent} ownPlayerIds={ownPlayerIds}
+      liveBoard={liveBoard} straightenVideo={straightenVideo}
+      videoOffers={videoOffers} onAcceptVideo={onAcceptVideo}
+      onDeclineVideo={onDeclineVideo} onLeave={onLeave} />;
+  }
+
   return (
     <section className="dartline-mobile-hud" aria-label="DartLine mobile scoreboard">
       <div className="dartline-hud-top">
         <div className="dartline-hud-brand">
-          <span className="dartline-hud-eyebrow">DARTLINE v2.4 · {textOf(view.headline)}</span>
+          <span className="dartline-hud-eyebrow">DARTLINE v2.5 · {textOf(view.headline)}</span>
           <strong>{current?.name ?? 'Dart match'} {isMyTurn ? <em>YOUR TURN</em> : <em>THROWING</em>}</strong>
         </div>
         <div className="dartline-hud-top-actions">
