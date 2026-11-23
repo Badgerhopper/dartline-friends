@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { MantineProvider } from '@mantine/core';
 import { MobileMatchHUD } from '../../src/client/components/MobileMatchHUD';
 import { viewOf } from '../../src/server/match';
 import { makeMatch } from '../helpers';
@@ -11,6 +12,7 @@ function screen(currentPlayerIndex: number, sameBoard = false) {
     sessionId:undefined,
   }));
   const html=renderToStaticMarkup(
+    <MantineProvider>
     <MobileMatchHUD
       match={match}
       view={viewOf(match)}
@@ -29,6 +31,7 @@ function screen(currentPlayerIndex: number, sameBoard = false) {
       onAcceptVideo={()=>{}}
       onDeclineVideo={()=>{}}
     />
+    </MantineProvider>
   );
   return html;
 }
