@@ -37,6 +37,12 @@ def install(root: Path) -> None:
           isSpectator={isSpectator}
           canAddDart={canAddDart}""")
 
+    # The pinned upstream runner tests .ts only; our React render regression
+    # checks are .tsx so explicitly include them in automated CI.
+    replace(root / 'vitest.config.ts',
+        "include: ['tests/unit/**/*.test.ts'],",
+        "include: ['tests/unit/**/*.test.ts', 'tests/unit/**/*.test.tsx'],")
+
     (root / 'src/client/public/dartline-build.txt').write_text(
         'dartline-remote-opponent-auto-view-v2.5-2026-11-23\n',
         encoding='utf-8',
