@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {cameraHealthLabel, type CameraHealth} from '../../src/client/lib/cameraHealth';
+import {cameraHealthLabel, shouldRecoverCameraLink, type CameraHealth} from '../../src/client/lib/cameraHealth';
 const health=(overrides:Partial<CameraHealth>={}):CameraHealth=>({
   cameraActive:true,scoring:true,scanning:true,motionFps:8.0,
   lastHealthAt:1000,armedSince:0,error:null,...overrides,
@@ -23,5 +23,21 @@ describe('DartLine camera readiness vs genuine motion scanning failure',()=>{
   expect(cameraHealthLabel(health({scoring:false}),2000)).toBe('Camera not assigned');
   expect(cameraHealthLabel(health({error:'processor crashed'}),2000)).toBe('AI error · open camera');
   expect(cameraHealthLabel(health({scanning:false}),2000)).toBe('Auto scan off');
+ });
+});
+
+describe('scorer iframe watchdog',()=>{
+ it('recovers one previously-active scoring iframe after 18 seconds without heartbeat',()=>{
+  expect(shouldRecoverCameraLink(1000,19000,true,true,true,0)).toBe(true);
+ });
+ it('does not confuse slow model inference or a normal idle board with link failure',()=>{
+  expect(shouldRecoverCameraLink(1000,18999,true,true,true,0)).toBe(false);
+ });
+ it('never retries indefinitely or reactivates an intentionally stopped camera',()=>{
+  expect(shouldRecoverCameraLink(1000,30000,true,true,true,1)).toBe(false);
+  expect(shouldRecoverCameraLink(1000,30000,true,true,false,0)).toBe(false);
+  expect(shouldRecoverCameraLink(1000,30000,false,true,true,0)).toBe(false);
+  expect(shouldRecoverCameraLink(1000,30000,true,false,true,0)).toBe(false);
+  expect(shouldRecoverCameraLink(0,30000,true,true,true,0)).toBe(false);
  });
 });
