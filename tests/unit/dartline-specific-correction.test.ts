@@ -100,3 +100,35 @@ describe('DartLine correction socket security and actual game state',()=>{
     expect(p.error()?.message).toBe('Invalid dart correction');
   });
 });
+
+describe('DartLine live socket missing-throw insertion',()=>{
+  it('inserts a missed dart between detected scores and refuses stale later edits',()=>{
+    const p=connect();
+    p.send({type:'create_lobby',acceptsJoins:false});
+    p.send({type:'add_local_player',playerName:'Shooter'});
+    p.send({type:'start_match'});
+    p.send({type:'add_dart',dart:correctedDart('20','single')});
+    p.send({type:'add_dart',dart:correctedDart('5','single')});
+    const previous=p.state().match.currentVisit!.darts;
+    p.send({type:'insert_missed_dart',index:1,expectedIds:previous.map(d=>d.id),
+      dart:correctedDart('20','triple')});
+    const after=p.state().match.currentVisit!.darts;
+    expect(after.map(d=>d.score.label)).toEqual(['S20','T20','S5']);
+    expect(after[0].id).toBe(previous[0].id);
+    expect(after[2].id).toBe(previous[1].id);
+    p.send({type:'insert_missed_dart',index:1,expectedIds:previous.map(d=>d.id),
+      dart:correctedDart('1','single')});
+    expect(p.error()?.message).toContain('This visit has no room');
+    expect(p.state().match.currentVisit!.darts.map(d=>d.score.label)).toEqual(['S20','T20','S5']);
+  });
+  it('accepts an explicit disabled auto-submit setting on an actual match',()=>{
+    const p=connect();
+    p.send({type:'create_lobby',acceptsJoins:false});
+    p.send({type:'add_local_player',playerName:'Shooter'});
+    p.send({type:'start_match'});
+    p.send({type:'set_verified_takeout',enabled:false});
+    expect(p.error()).toBeUndefined();
+    p.send({type:'set_verified_takeout',enabled:'maybe'});
+    expect(p.error()?.message).toBe('Invalid takeout setting');
+  });
+});
