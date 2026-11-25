@@ -14,8 +14,6 @@ def run(root):
       'tests/unit/dartline-verified-board-clear.test.ts',
       'src/client/components/MobileMatchHUD.tsx',
       'src/client/mobileMatch.css',
-      'src/client/lib/tipRescue.ts',
-      'tests/unit/dartline-tip-rescue.test.ts',
       'tests/unit/dartline-missing-throws.test.ts',
     ]:
         dest=root/rel
@@ -247,42 +245,9 @@ function handleSubmitVisit(ws: WebSocket): void {""")
       "          onCorrectDart={onCorrectDart}\n          onSubmitVisit={onSubmitVisit}",
       "          onCorrectDart={onCorrectDart}\n          onInsertDart={onInsertDart}\n          onAutoTakeoutChange={onAutoTakeoutChange}\n          onSubmitVisit={onSubmitVisit}")
 
-    # After a visible dart was recently detected, verify a possible empty
-    # board with two delayed full inferences. Don't let positive-only scans
-    # silently declare a takeout, and don't keep scanning forever.
-    scorer=root/'src/client/pages/scorer/ScorerPage.tsx'
-    patch(scorer,
-      "  // Rescue recognition: on some phones, a small dart impact does not move enough",
-      """  // A positive-only scan is useful for finding missed darts, but cannot
-  // confirm dart removal. When a properly located frame has become empty
-  // after a visible dart, request two independent full scans. The scoring
-  // server alone decides whether they justify an opt-in takeout.
-  const boardClearProbes=useRef({sawDarts:false, remaining:0});
-  useEffect(() => {
-    if(!vision.cameraActive || !scoring || !vision.motion.armed
-      || document.visibilityState !== 'visible') {
-      boardClearProbes.current={sawDarts:false,remaining:0};
-      return;
-    }
-    const frame=vision.frame;
-    if(!frame?.result || frame.result.boardKeypoints<5) return;
-    if(frame.result.tips.length>0) {
-      boardClearProbes.current={sawDarts:true,remaining:2};
-      return;
-    }
-    const state=boardClearProbes.current;
-    if(!state.sawDarts || state.remaining<=0) return;
-    state.remaining--;
-    // Do not cancel the pending confirmation when a positive-only scan
-    // refreshes vision.frame 550 ms later. That was the exact reason a 900 ms
-    // empty-board confirmation timer could otherwise never run.
-    window.setTimeout(()=>{
-      if(document.visibilityState==='visible')
-        void vision.runtimeRef.current?.infer();
-    },900);
-  },[vision.frame,vision.cameraActive,vision.motion.armed,vision.runtimeRef,scoring]);
-
-  // Rescue recognition: on some phones, a small dart impact does not move enough""")
+    # Intentionally do not touch inference cadence or detector state.
+    # Three-dart removal monitoring is installed separately by
+    # takeout_only.py, without modifying the proven recognition pipeline.
     (root/'src/client/public/dartline-build.txt').write_text(
       'dartline-missed-darts-verified-takeout-v2.6-2026-11-25\n',encoding='utf-8')
     print('DartLine v2.6 missed-throw insertion and safe optional takeout installed')
