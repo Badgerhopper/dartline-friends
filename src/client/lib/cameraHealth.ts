@@ -21,3 +21,15 @@ export function cameraHealthLabel(report:CameraHealth|null,now:number):string {
   if (now-report.armedSince<12000) return 'Starting camera scan';
   return 'Camera feed paused';
 }
+
+/** Recover a genuinely silent scorer document, not an idle AI model.
+ * One automatic iframe restart per pairing prevents crash/reload loops. */
+export const CAMERA_LINK_RECOVERY_MS = 18000;
+export function shouldRecoverCameraLink(
+  lastHeartbeatAt:number, now:number, enabled:boolean,
+  inMatch:boolean, wasCameraActive:boolean, attempts:number,
+):boolean {
+  return enabled && inMatch && wasCameraActive && attempts === 0 &&
+    Number.isFinite(lastHeartbeatAt) && lastHeartbeatAt > 0 &&
+    Number.isFinite(now) && now - lastHeartbeatAt >= CAMERA_LINK_RECOVERY_MS;
+}
