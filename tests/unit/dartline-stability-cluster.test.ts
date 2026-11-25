@@ -7,8 +7,8 @@ const existing=(x:number)=>{
  return {x,y:tip.y,confidence:tip.confidence,observations:[tip]};
 };
 describe('DartLine same-dart projection jitter',()=>{
-  it('does not rescore a stationary S3 when coordinate drift exceeds the old 3.75mm filter',()=>{
-    const result=filterKnownTips([p(507500)],[existing(500000)]);
+  it('does not rescore a stationary dart when it stays within the physical tip repeat radius',()=>{
+    const result=filterKnownTips([p(503000)],[existing(500000)]);
     expect(result.survivors).toEqual([]);
   });
   it('preserves an independently observed second dart near one previously recorded',()=>{

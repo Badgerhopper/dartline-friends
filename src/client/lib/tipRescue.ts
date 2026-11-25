@@ -7,7 +7,7 @@ import type { BoardTip } from '../../shared/vision/types';
  * stays anchored after confirmation so repeated scans do not double count it.
  */
 export const RELAXED_TIP_THRESHOLD = 0.42;
-export const TIP_MATCH_RADIUS = 10500; // ~4.7mm; keep a stationary dart anchored despite tip jitter
+export const TIP_MATCH_RADIUS = 8000; // ~3.6mm; keep close physical darts distinguishable
 const MAX_GAP_MS = 2300;
 // Do not auto-create zero-point darts from low-confidence noise on the board
 // surround. A user can still enter an actual outer-board miss manually.

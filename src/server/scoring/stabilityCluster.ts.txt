@@ -5,7 +5,7 @@
 // to undo. A tip's camera key is its device id outright — every tip here
 // arrives from an authenticated scoring device, so there is no null case to defend against.
 
-import { THROW_WINDOW_DART_RADIUS } from '../../shared/vision/constants';
+import { THROW_WINDOW_DART_RADIUS, REPEAT_FILTER_RADIUS } from '../../shared/vision/constants';
 import type { DartPoint } from '../../shared/vision/types';
 
 /**
@@ -56,30 +56,15 @@ export function filterKnownTips(
   const survivors: DartPoint[] = [];
 
   const sorted = [...tips].sort((a, b) => b.confidence - a.confidence);
-  // Tip projection jitters by several millimeters when the camera re-locates
-  // the board. Treat an already tracked, same-camera dart as the SAME throw
-  // across stationary scans, but assign one known track to only one observed
-  // point in each report so two truly distinct close tips can survive.
-  const SAME_CAMERA_STABLE_RADIUS = 10500;
-  const assignedByCamera = new Map<string, Set<number>>();
 
   for (const tip of sorted) {
-    const assigned = assignedByCamera.get(tip.deviceId) ?? new Set<number>();
-    assignedByCamera.set(tip.deviceId, assigned);
-    let repeatIndex = -1;
-    let repeatDistance = SAME_CAMERA_STABLE_RADIUS;
-    for (let i = 0; i < next.length; i++) {
-      if (assigned.has(i)) continue;
-      for (const observation of next[i].observations) {
-        if (observation.deviceId !== tip.deviceId) continue;
-        const d=distance(tip.x,tip.y,observation.x,observation.y);
-        if (d < repeatDistance) { repeatDistance=d; repeatIndex=i; }
-      }
-    }
-    if (repeatIndex >= 0) {
-      assigned.add(repeatIndex);
-      continue;
-    }
+    // Same-camera repeat: this camera already saw this dart → drop.
+    const isRepeat = next.some((d) =>
+      d.observations.some(
+        (o) => o.deviceId === tip.deviceId && distance(tip.x, tip.y, o.x, o.y) < REPEAT_FILTER_RADIUS,
+      ),
+    );
+    if (isRepeat) continue;
 
     // Cross-camera attach: a camera that has not observed a known dart, landing near it, is seeing
     // that known dart for the first time → attach, don't spawn.
@@ -118,6 +103,9 @@ export function clusterNewTips(survivors: DartPoint[]): DartCandidate[] {
     let nearestDist = Infinity;
     for (const c of candidates) {
       const dist = distance(tip.x, tip.y, c.x, c.y);
+      // Two distinct same-camera tip predictions must never be fused merely
+      // because they share a narrow treble bed. Only another camera's
+      // observation may be attached to this candidate.
       if (!c.observations.some(o => o.deviceId === tip.deviceId)
           && dist < THROW_WINDOW_DART_RADIUS && dist < nearestDist) {
         nearest = c;
