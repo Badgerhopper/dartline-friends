@@ -93,6 +93,17 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
     return () => window.removeEventListener('resize', onResize);
   }, [view]);
   const frame = useRef<HTMLIFrameElement>(null);
+  const takeoutMonitor = useRef(false);
+  useEffect(() => {
+    const monitor = (event: Event) => {
+      takeoutMonitor.current = Boolean((event as CustomEvent<{armed:boolean}>).detail?.armed);
+      frame.current?.contentWindow?.postMessage({
+        type:'dartline:takeout-monitor', armed:takeoutMonitor.current,
+      }, window.location.origin);
+    };
+    window.addEventListener('dartline:takeout-monitor',monitor);
+    return () => window.removeEventListener('dartline:takeout-monitor',monitor);
+  },[]);
   const [report, setReport] = useState<ScorerReport | null>(null);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
@@ -108,6 +119,11 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
         || typeof data.scanCount !== 'number'
         || !(data.error === null || typeof data.error === 'string')
         || typeof data.status !== 'string') return;
+      // Refresh the scorer's takeout state on camera-health replies as well;
+      // this survives a scorer iframe reload without relying on event timing.
+      frame.current?.contentWindow?.postMessage({
+        type:'dartline:takeout-monitor', armed:takeoutMonitor.current,
+      },window.location.origin);
       window.dispatchEvent(new CustomEvent('dartline:camera-health', {detail: {
         cameraActive: data.cameraActive, scoring: data.scoring,
         scanning: data.scanning, scanCount: data.scanCount,

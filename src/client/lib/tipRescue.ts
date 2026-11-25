@@ -7,12 +7,13 @@ import type { BoardTip } from '../../shared/vision/types';
  * stays anchored after confirmation so repeated scans do not double count it.
  */
 export const RELAXED_TIP_THRESHOLD = 0.42;
-export const TIP_MATCH_RADIUS = 8000; // ~3.6 mm; preserve nearby distinct tips
+export const TIP_MATCH_RADIUS = 10500; // ~4.7mm; keep a stationary dart anchored despite tip jitter
 const MAX_GAP_MS = 2300;
-// The physical board extends to 225 mm; the scoring double ring ends at
-// 170 mm. A tip in the outer surround is a real 0-point throw, not noise.
-// Leave 5 mm margin to avoid clipped image-edge false detections.
-const VALID_BOARD_RADIUS = 220 * (1_000_000 / 451);
+// Do not auto-create zero-point darts from low-confidence noise on the board
+// surround. A user can still enter an actual outer-board miss manually.
+// This is intentionally conservative until a dart-vs-background classifier
+// is validated on a physical board.
+const VALID_BOARD_RADIUS = 170 * (1_000_000 / 451);
 const STANDARD_CONFIRMATIONS = 2;
 const VERY_WEAK_CONFIRMATIONS = 3;
 const VERY_WEAK_THRESHOLD = 0.50;

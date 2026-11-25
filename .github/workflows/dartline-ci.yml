@@ -42,7 +42,7 @@ jobs:
           marker="$(curl -fLsS --retry 2 --retry-delay 5 --max-time 75 \
             'https://dartline-friends.onrender.com/dartline-build.txt' 2>/dev/null || true)"
           echo "LIVE_RENDER_MARKER=${marker:-unreachable}"
-          if [ "$marker" != 'dartline-missed-darts-verified-takeout-v2.6-2026-11-25' ]; then
+          if [ "$marker" != 'dartline-phantom-fix-verified-clear-v2.7-2026-11-25' ]; then
             echo "::warning::Render is not confirmed to be serving the new checkout and mobile-screen release."
             exit 1
           fi

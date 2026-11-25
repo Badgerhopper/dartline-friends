@@ -152,6 +152,21 @@ export function MobileMatchHUD({
     };
   }, []);
   const remoteOpponent = remoteTurnOpponent(match, ownPlayerIds, isSpectator);
+  // The scoring iframe lives outside the mobile match screen. Explicitly arm
+  // removal checks ONLY while this board owns a three-dart visit, and disarm
+  // as soon as the player submits, switches turns, or disables the setting.
+  const monitorTakeout = autoTakeout && active && !remoteOpponent
+    && match.status === 'in_progress' && darts.length === 3;
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('dartline:takeout-monitor', {
+      detail:{armed:monitorTakeout},
+    }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('dartline:takeout-monitor', {
+        detail:{armed:false},
+      }));
+    };
+  },[monitorTakeout,match.id,match.currentPlayerIndex,match.visits.length]);
   const cameraText = !cameraReport?.cameraActive ? 'Camera inactive'
     : !cameraReport.scoring ? 'Camera not assigned'
     : !cameraReport.scanning ? 'Auto scan off'
@@ -174,7 +189,7 @@ export function MobileMatchHUD({
     <section className="dartline-mobile-hud" aria-label="DartLine mobile scoreboard">
       <div className="dartline-hud-top">
         <div className="dartline-hud-brand">
-          <span className="dartline-hud-eyebrow">DARTLINE v2.6 · {textOf(view.headline)}</span>
+          <span className="dartline-hud-eyebrow">DARTLINE v2.7 · {textOf(view.headline)}</span>
           <strong>{current?.name ?? 'Dart match'} {isMyTurn ? <em>YOUR TURN</em> : <em>THROWING</em>}</strong>
         </div>
         <div className="dartline-hud-top-actions">
@@ -255,7 +270,7 @@ export function MobileMatchHUD({
         {autoTakeout ? '✓ Auto-submit on board clear: ON' : 'Auto-submit on board clear: OFF'}
       </button>
       {autoTakeout && <p className="dartline-hud-takeout-note">After all 3 darts are scored, removing them submits
-        the turn only after the camera confirms an empty board twice. Check scores before retrieving.</p>}
+        the turn only after removal motion and two clear scans. Check scores before retrieving.</p>}
       {panel && statsOpen && (
         <div className="dartline-hud-game-stats">
           <ModePanelBlock modeId={match.settings.mode} panel={panel} />
