@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DartLine v2.8: an idle motion-triggered AI is NOT a stalled camera.
+"""DartLine v2.9: an idle motion-triggered AI is NOT a stalled camera.
 Report scorer heartbeat + real motion analyzer frame rate to the match HUD.
 Never run extra model inferences just to update a status badge."""
 from pathlib import Path
@@ -44,15 +44,29 @@ def apply(root:Path)->None:
   }, [vision.cameraActive, vision.motion.armed, vision.frame, vision.scanCount, vision.error, scoring, status]);""",
         """      status,
     }, window.location.origin);
+    // The most recent callback is saved every update. Its timer must not
+    // restart for every camera frame or model scan.
+    healthSender.current = sendHealth;
     sendHealth();
-    const heartbeat = window.setInterval(sendHealth, 2500);
-    return () => window.clearInterval(heartbeat);
   }, [vision.cameraActive, vision.motion.armed, vision.motion.fps,
-      vision.frame, vision.scanCount, vision.error, scoring, status]);""")
+      vision.frame, vision.scanCount, vision.error, scoring, status]);
+  useEffect(() => {
+    if (window.parent === window) return;
+    const heartbeat = window.setInterval(() => healthSender.current(), 2500);
+    return () => window.clearInterval(heartbeat);
+  }, []);""")
+    patch(scorer,
+        """  useEffect(() => {
+    if (window.parent === window) return;
+    // Heartbeat must continue""",
+        """  const healthSender = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (window.parent === window) return;
+    // Heartbeat must continue""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
-        'dartline-camera-health-heartbeat-v2.8-2026-11-25\n',encoding='utf-8')
-    print('DartLine v2.8: accurate motion readiness and continuous scorer heartbeat installed')
+        'dartline-camera-health-heartbeat-v2.9-2026-11-25\n',encoding='utf-8')
+    print('DartLine v2.9: accurate motion readiness and continuous scorer heartbeat installed')
 if __name__=='__main__':
     try:apply(Path(sys.argv[1]).resolve())
     except Exception as exc:
