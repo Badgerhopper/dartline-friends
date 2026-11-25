@@ -66,7 +66,7 @@ def install(root: Path) -> None:
 """
     scorer.write_text(contents.replace(anchor, monitor + anchor, 1), encoding='utf-8')
     (root / 'src/client/public/dartline-build.txt').write_text(
-        'dartline-pre-auto-detection-plus-opt-in-takeout-v3.1-2026-11-25\n',
+        'dartline-v4-conservative-detection-takeout-v3.2-2026-11-25\n',
         encoding='utf-8')
     print('v3.1: pre-auto-submit recognition preserved; optional removal-only scan installed')
 
