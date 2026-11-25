@@ -65,42 +65,6 @@ import { StableTipRescue, mergeRescuedTips, RELAXED_TIP_THRESHOLD } from '../lib
     # Distinct public marker to distinguish deployed code from a stale Render build.
     (root/'src/client/public/dartline-build.txt').write_text(
         'dartline-tip-rescue-2026-11-21-v4\n', encoding='utf-8')
-    # A mounted recent iPhone with WebGPU has enough throughput to prioritize
-    # the detailed 1280px detector. One-time migration respects later manual
-    # choices if the user needs to return to 960px.
-    helper = ROOT / 'src/client/lib/imageDetail.ts'
-    shutil.copyfile(helper, root/'src/client/lib/imageDetail.ts')
-    shutil.copyfile(ROOT/'tests/unit/dartline-image-detail.test.ts',
-                    root/'tests/unit/dartline-image-detail.test.ts')
-    hook = root/'src/client/hooks/useVisionRuntime.ts'
-    replace(hook,
-        "import { createVisionRuntime, MODELS } from '../vision/visionRuntime';",
-        "import { createVisionRuntime, MODELS } from '../vision/visionRuntime';\nimport { shouldUpgradeDetailModel } from '../lib/imageDetail';")
-    replace(hook,
-        "    const stored = loadSettings();\n    const runtime = createVisionRuntime({",
-        """    let stored = loadSettings();
-    let migrated = false;
-    try {
-      const key = 'dartline_high_detail_choice_v1';
-      const decided = localStorage.getItem(key) === 'done';
-      if (shouldUpgradeDetailModel(stored.model, navigator.userAgent,
-          Boolean((navigator as Navigator & {gpu?: unknown}).gpu), decided)) {
-        stored = saveSettings({model: 's_1280'});
-        setSettings(stored);
-        migrated = true;
-      }
-      localStorage.setItem(key, 'done');
-    } catch { /* Camera still works if storage is disabled. */ }
-    if (migrated) setStatus({stage: 'model', text: 'Higher-detail dart model selected'});
-    const runtime = createVisionRuntime({""")
-    assist = root/'src/client/lib/scanAssist.ts'
-    replace(assist,'export const ASSIST_INTERVAL_MS = 1200;',
-                  'export const ASSIST_INTERVAL_MS = 550;')
-    unit = root/'tests/unit/dartline-scan-assist.test.ts'
-    replace(unit,'expect(ASSIST_INTERVAL_MS).toBeGreaterThanOrEqual(1000);',
-                 'expect(ASSIST_INTERVAL_MS).toBeGreaterThanOrEqual(450);')
-    (root/'src/client/public/dartline-build.txt').write_text(
-        'dartline-fast-tip-recovery-2026-11-21-v5\n', encoding='utf-8')
     print('Stable dart-tip rescue installed; strong detections unchanged.')
 
 if __name__=='__main__':
