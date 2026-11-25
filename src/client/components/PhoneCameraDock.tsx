@@ -143,7 +143,7 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
         || !(data.error === null || typeof data.error === 'string')
         || typeof data.status !== 'string') return;
       lastHeartbeatAt.current = Date.now();
-      if (data.cameraActive) wasCameraActive.current = true;
+      wasCameraActive.current = data.cameraActive;
       // Refresh the scorer's takeout state on camera-health replies as well;
       // this survives a scorer iframe reload without relying on event timing.
       frame.current?.contentWindow?.postMessage({
