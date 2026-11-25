@@ -23,6 +23,7 @@ type Props = {
   cameraActive: boolean;
   cameraError?: string;
   inMatch: boolean;
+  showLauncher: boolean;
   onEnable: () => void;
   onDisable: () => void;
   onRetry: () => void;
@@ -35,7 +36,7 @@ type Props = {
  * Camera permission remains under the user's control inside the scorer frame.
  */
 export function PhoneCameraDock({ enabled, connected, code, cameraActive, cameraError, inMatch,
-  onEnable, onDisable, onRetry }: Props) {
+  showLauncher, onEnable, onDisable, onRetry }: Props) {
   const [view, setView] = useState<'setup' | 'preview' | 'hidden'>('setup');
   // The match HUD owns the camera reopen control while the preview is hidden.
   useEffect(() => {
@@ -141,6 +142,7 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
   }, []);
   useEffect(() => { setReport(null); }, [code]);
   if (!enabled) {
+    if (!showLauncher) return null;
     return (
       <button type="button" className="dartline-phone-launch" onClick={() => { setView('setup'); onEnable(); }}
         aria-label="Use this phone as the dartboard camera">
