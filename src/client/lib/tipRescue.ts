@@ -1,124 +1,58 @@
 import type { BoardTip } from '../../shared/vision/types';
 
 /**
- * Secondary tip recovery using the original InstaDarts model. Weak predictions
- * are not accepted until repeated at the same board coordinate. A dart may
- * disappear for a frame without resetting that evidence. The reported location
- * stays anchored after confirmation so repeated scans do not double count it.
+ * Original InstaDarts keeps its conservative 0.80 tip-confidence setting.
+ * This auxiliary detector only publishes relaxed (>=0.50) predictions after
+ * the *same* physical tip appears in two consecutive camera inferences.
+ * It is not a substitute for a trained model that cannot see the tip at all.
  */
-export const RELAXED_TIP_THRESHOLD = 0.42;
-export const TIP_MATCH_RADIUS = 13000; // ~5.9 mm in 451-mm board coordinates
-const MAX_GAP_MS = 2300;
+export const RELAXED_TIP_THRESHOLD = 0.50;
+const MATCH_RADIUS = 15000; // 6.77 mm in 451 mm board coordinates
+const MAX_GAP_MS = 4500;
 const DOUBLE_OUTER_RADIUS = 170 * (1_000_000 / 451);
-const STANDARD_CONFIRMATIONS = 2;
-const VERY_WEAK_CONFIRMATIONS = 3;
-const VERY_WEAK_THRESHOLD = 0.50;
 
-type Candidate = {
-  anchor: BoardTip;
-  lastSeen: number;
-  hits: number;
-  peakConfidence: number;
-};
-
-function validTip(t: BoardTip): boolean {
-  if (!Number.isFinite(t.x) || !Number.isFinite(t.y) || !Number.isFinite(t.confidence)) return false;
-  if (t.confidence < RELAXED_TIP_THRESHOLD) return false;
-  return Math.hypot(t.x - 500000, t.y - 500000) <= DOUBLE_OUTER_RADIUS;
+function scoreSurface(t: BoardTip): boolean {
+  const r = Math.hypot(t.x - 500000, t.y - 500000);
+  return Number.isFinite(r) && r <= DOUBLE_OUTER_RADIUS
+    && Number.isFinite(t.confidence) && t.confidence >= RELAXED_TIP_THRESHOLD;
 }
-
-function distance(a: BoardTip, b: BoardTip): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
+function nearby(a: BoardTip, b: BoardTip): boolean {
+  return Math.hypot(a.x - b.x, a.y - b.y) <= MATCH_RADIUS;
 }
+type Candidate = { tip: BoardTip; hits: number; lastSeen: number };
 
-/** Evidence accumulator for the lifetime of one running camera. */
+/** Stateful across inferences but always reset on a camera change. */
 export class StableTipRescue {
-  private candidates: Candidate[] = [];
-
-  reset(): void { this.candidates = []; }
+  private previous: Candidate[] = [];
+  reset(): void { this.previous = []; }
 
   observe(tips: readonly BoardTip[], now: number): BoardTip[] {
-    if (!Number.isFinite(now)) return [];
-    const recent = this.candidates.filter(c => now >= c.lastSeen && now - c.lastSeen <= MAX_GAP_MS);
-    const matched = new Set<number>();
-    const next = [...recent];
+    const eligible = tips.filter(scoreSurface);
+    const prior = this.previous.filter((c) => now - c.lastSeen >= 0 && now - c.lastSeen <= MAX_GAP_MS);
+    const used = new Set<number>();
+    const next: Candidate[] = [];
     const confirmed: BoardTip[] = [];
-
-    // Highest-confidence candidates get first choice of matching an existing
-    // anchor; a second close-by dart gets its own track, not a duplicate of one.
-    for (const tip of tips.filter(validTip).sort((a, b) => b.confidence - a.confidence)) {
-      let best = -1;
-      let bestDistance = TIP_MATCH_RADIUS;
-      for (let i = 0; i < recent.length; i++) {
-        if (matched.has(i)) continue;
-        const d = distance(tip, recent[i].anchor);
-        if (d <= bestDistance) {
-          best = i;
-          bestDistance = d;
-        }
+    for (const tip of eligible) {
+      let match = -1;
+      let best = Infinity;
+      for (let i = 0; i < prior.length; i++) {
+        if (used.has(i)) continue;
+        const distance = Math.hypot(tip.x - prior[i].tip.x, tip.y - prior[i].tip.y);
+        if (distance <= MATCH_RADIUS && distance < best) { best = distance; match = i; }
       }
-      if (best < 0) {
-        next.push({ anchor: { ...tip }, lastSeen: now, hits: 1, peakConfidence: tip.confidence });
-        continue;
-      }
-      matched.add(best);
-      const item = next[best];
-      // The first weak location can be off by a few mm. Before the dart is
-      // confirmed, average successive weak sightings so the ring position
-      // is less sensitive to one noisy frame. High-confidence sightings
-      // stay anchored to avoid re-scoring the same existing dart.
-      const wasUnconfirmed = item.hits < (item.peakConfidence >= VERY_WEAK_THRESHOLD
-        ? STANDARD_CONFIRMATIONS : VERY_WEAK_CONFIRMATIONS);
-      if (wasUnconfirmed && item.peakConfidence < 0.8) {
-        if (tip.confidence >= 0.8) {
-          item.anchor = { ...tip };
-        } else {
-          item.anchor = {
-            x: Math.round((item.anchor.x * item.hits + tip.x) / (item.hits + 1)),
-            y: Math.round((item.anchor.y * item.hits + tip.y) / (item.hits + 1)),
-            confidence: Math.max(item.anchor.confidence, tip.confidence),
-          };
-        }
-      }
-      item.hits += 1;
-      item.lastSeen = now;
-      item.peakConfidence = Math.max(item.peakConfidence, tip.confidence);
-      const needed = item.peakConfidence >= VERY_WEAK_THRESHOLD
-        ? STANDARD_CONFIRMATIONS : VERY_WEAK_CONFIRMATIONS;
-      if (item.hits >= needed) {
-        // Never publish the drifting tip position; it would look like a second
-        // nearby dart to the server's tighter repeat filter.
-        confirmed.push({ ...item.anchor, confidence: item.peakConfidence });
-      }
+      if (match >= 0) used.add(match);
+      const hits = match >= 0 ? prior[match].hits + 1 : 1;
+      next.push({tip, hits, lastSeen: now});
+      if (hits >= 2) confirmed.push(tip);
     }
-    this.candidates = next;
+    // Missing predictions must break a streak: we do not trust sporadic noise.
+    this.previous = next;
     return confirmed;
   }
 }
 
-/** Anchor a strict (immediate) detection to its previously observed position
- * when possible; append remaining stable weak tips once each. */
 export function mergeRescuedTips(strict: readonly BoardTip[], rescued: readonly BoardTip[]): BoardTip[] {
-  const result = strict.map(t => ({...t}));
-  const used = new Set<number>();
-  for (const stable of rescued) {
-    let best = -1;
-    let bestDistance = TIP_MATCH_RADIUS;
-    for (let i = 0; i < result.length; i++) {
-      if (used.has(i)) continue;
-      const d = distance(result[i], stable);
-      if (d <= bestDistance) {
-        best = i;
-        bestDistance = d;
-      }
-    }
-    if (best >= 0) {
-      used.add(best);
-      result[best] = { ...stable, confidence: Math.max(result[best].confidence, stable.confidence) };
-    } else {
-      result.push({...stable});
-      used.add(result.length - 1);
-    }
-  }
+  const result = [...strict];
+  for (const t of rescued) if (!result.some((s) => nearby(s, t))) result.push(t);
   return result;
 }
