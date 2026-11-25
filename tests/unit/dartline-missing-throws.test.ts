@@ -28,7 +28,7 @@ describe('DartLine insertion of undetected throws',()=>{
   it('inserts a missed second dart before a camera-detected third',()=>{
     const original=withDarts('T20','S20');
     const old=original.currentVisit!.darts;
-    const changed=insertDartIntoMatch(original,'p1',1,old.map(x=>x.id!),makeDart('T5'));
+    const changed=insertDartIntoMatch(original,'p1',1,old.map(x=>x.id!),correctedDart('5','triple'));
     expect(changed.success).toBe(true);
     if(!changed.success) return;
     expect(changed.match.currentVisit!.darts.map(x=>x.score.label)).toEqual(['T20','T5','S20']);
@@ -37,7 +37,7 @@ describe('DartLine insertion of undetected throws',()=>{
   });
   it('supports manually entering Dart 1 when nothing was detected',()=>{
     const m=makeMatch();
-    const changed=insertDartIntoMatch(m,'p1',0,[],makeDart('S7'));
+    const changed=insertDartIntoMatch(m,'p1',0,[],correctedDart('7','single'));
     expect(changed.success).toBe(true);
     if(!changed.success) return;
     expect(changed.match.currentVisit?.darts[0].score.label).toBe('S7');
@@ -45,15 +45,15 @@ describe('DartLine insertion of undetected throws',()=>{
   it('rejects stale ID lists and late arrivals',()=>{
     const m=withDarts('T20','S5');
     const ids=m.currentVisit!.darts.map(d=>d.id!);
-    expect(insertDartIntoMatch(m,'p1',1,[ids[0],'stale'],makeDart('S9')).success).toBe(false);
-    expect(insertDartIntoMatch(m,'p1',1,[],makeDart('S9')).success).toBe(false);
-    expect(insertDartIntoMatch(m,'p1',3,ids,makeDart('S9')).success).toBe(false);
-    expect(insertDartIntoMatch(m,'p2',1,ids,makeDart('S9')).success).toBe(false);
+    expect(insertDartIntoMatch(m,'p1',1,[ids[0],'stale'],correctedDart('9','single')).success).toBe(false);
+    expect(insertDartIntoMatch(m,'p1',1,[],correctedDart('9','single')).success).toBe(false);
+    expect(insertDartIntoMatch(m,'p1',3,ids,correctedDart('9','single')).success).toBe(false);
+    expect(insertDartIntoMatch(m,'p2',1,ids,correctedDart('9','single')).success).toBe(false);
   });
   it('never creates a fourth dart or modifies a finished match',()=>{
     const m=withDarts('S20','S5','S1');
-    expect(insertDartIntoMatch(m,'p1',2,m.currentVisit!.darts.map(d=>d.id!),makeDart('S4')).success).toBe(false);
-    expect(insertDartIntoMatch({...m,status:'finished'},'p1',2,[],makeDart('S4')).success).toBe(false);
+    expect(insertDartIntoMatch(m,'p1',2,m.currentVisit!.darts.map(d=>d.id!),correctedDart('4','single')).success).toBe(false);
+    expect(insertDartIntoMatch({...m,status:'finished'},'p1',2,[],correctedDart('4','single')).success).toBe(false);
   });
 });
 afterEach(()=>vi.useRealTimers());
