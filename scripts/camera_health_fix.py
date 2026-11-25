@@ -65,7 +65,7 @@ def apply(root:Path)->None:
     // Heartbeat must continue""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
-        'dartline-pre-auto-detection-takeout-v3.1-2026-11-25\n',encoding='utf-8')
+        'dartline-v4-conservative-detection-takeout-v3.2-2026-11-25\n',encoding='utf-8')
     print('DartLine v3.0: accurate motion readiness and continuous scorer heartbeat installed')
 if __name__=='__main__':
     try:apply(Path(sys.argv[1]).resolve())
