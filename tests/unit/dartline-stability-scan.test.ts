@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {recentlyThrew,shouldProbeTakeout,TAKEOUT_SETTLE_MS,THROW_RESCUE_WINDOW_MS} from '../../src/client/lib/stabilityScan';
+import {MotionRescueBudget,recentlyThrew,shouldProbeTakeout,TAKEOUT_SETTLE_MS,THROW_RESCUE_WINDOW_MS} from '../../src/client/lib/stabilityScan';
 describe('DartLine motion-gated recognition',()=>{
  it('never starts background tip rescue on an idle unthrown board',()=>{
   expect(recentlyThrew(10000,0)).toBe(false);
@@ -22,5 +22,20 @@ describe('DartLine motion-gated recognition',()=>{
  });
  it('stops checking after a brief confirmation window instead of continuously hallucinating',()=>{
   expect(shouldProbeTakeout(12000,1000,true,'idle')).toBe(false);
+ });
+});
+
+describe('DartLine one backup scan per physical throw',()=>{
+ it('prevents several fallback scans from inventing duplicate darts for one movement',()=>{
+  const gate=new MotionRescueBudget();
+  expect(gate.allow(1200,1000)).toBe(true);
+  expect(gate.allow(1650,1000)).toBe(false);
+  expect(gate.allow(1900,1000)).toBe(false);
+  expect(gate.allow(2900,2800)).toBe(true);
+ });
+ it('does not scan a stationary board without a recent throw',()=>{
+  const gate=new MotionRescueBudget();
+  expect(gate.allow(2000,0)).toBe(false);
+  expect(gate.allow(6000,1000)).toBe(false);
  });
 });

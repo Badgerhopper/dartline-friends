@@ -5,6 +5,16 @@ export function recentlyThrew(now:number, lastMotion:number): boolean {
   return Number.isFinite(now) && lastMotion>0 && now>=lastMotion
     && now-lastMotion<=THROW_RESCUE_WINDOW_MS;
 }
+/** Allow at most one fallback scan per physical movement. */
+export class MotionRescueBudget {
+  private lastAssistedMotion=0;
+  allow(now:number,motionAt:number):boolean {
+    if(!recentlyThrew(now,motionAt) || motionAt===this.lastAssistedMotion) return false;
+    this.lastAssistedMotion=motionAt;
+    return true;
+  }
+  reset():void {this.lastAssistedMotion=0;}
+}
 /** Full, empty-capable inference is reserved for actual retrieval movement
  * after a complete, opted-in three-dart visit. */
 export const TAKEOUT_SETTLE_MS=700;

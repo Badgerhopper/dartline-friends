@@ -42,10 +42,10 @@ def install(root):
     scorer=root/'src/client/pages/scorer/ScorerPage.tsx'
     patch(scorer,
       "import { ASSIST_INTERVAL_MS, shouldScanStationaryBoard } from '../../lib/scanAssist';",
-      "import { ASSIST_INTERVAL_MS, shouldScanStationaryBoard } from '../../lib/scanAssist';\nimport { recentlyThrew, shouldProbeTakeout } from '../../lib/stabilityScan';")
+      "import { ASSIST_INTERVAL_MS, shouldScanStationaryBoard } from '../../lib/scanAssist';\nimport { MotionRescueBudget, shouldProbeTakeout } from '../../lib/stabilityScan';")
     patch(scorer,
       "  const prevDot = useRef(vision.motion.dot);",
-      "  const lastPhysicalMotionAt=useRef(0);\n  const prevDot = useRef(vision.motion.dot);")
+      "  const lastPhysicalMotionAt=useRef(0);\n  const rescueBudget=useRef(new MotionRescueBudget());\n  const prevDot = useRef(vision.motion.dot);")
     patch(scorer,
       "    if (!isPending) return;",
       "    if (isPending) lastPhysicalMotionAt.current=Date.now();\n    if (!isPending) return;")
@@ -56,7 +56,7 @@ def install(root):
       """      })) return;
       // Background inference every 550ms with no throw caused phantom MISS
       // and duplicate S3 detections. Only rescue right after physical motion.
-      if (!recentlyThrew(Date.now(),lastPhysicalMotionAt.current)) return;
+      if (!rescueBudget.current.allow(Date.now(),lastPhysicalMotionAt.current)) return;
       if (vision.motion.dot==='pending' || vision.motion.dot==='pendingLarge') return;
       void vision.runtimeRef.current?.inferPositiveOnly();
     }, ASSIST_INTERVAL_MS);""")
