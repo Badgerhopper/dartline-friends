@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DartLine v2.9: an idle motion-triggered AI is NOT a stalled camera.
+"""DartLine v3.0: an idle motion-triggered AI is NOT a stalled camera.
 Report scorer heartbeat + real motion analyzer frame rate to the match HUD.
 Never run extra model inferences just to update a status badge."""
 from pathlib import Path
@@ -65,10 +65,10 @@ def apply(root:Path)->None:
     // Heartbeat must continue""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
-        'dartline-camera-health-heartbeat-v2.9-2026-11-25\n',encoding='utf-8')
-    print('DartLine v2.9: accurate motion readiness and continuous scorer heartbeat installed')
+        'dartline-camera-health-heartbeat-v3.0-2026-11-25\n',encoding='utf-8')
+    print('DartLine v3.0: accurate motion readiness and continuous scorer heartbeat installed')
 if __name__=='__main__':
     try:apply(Path(sys.argv[1]).resolve())
     except Exception as exc:
-        print('DartLine v2.8 overlay failed:',exc,file=sys.stderr)
+        print('DartLine v3.0 overlay failed:',exc,file=sys.stderr)
         sys.exit(1)
