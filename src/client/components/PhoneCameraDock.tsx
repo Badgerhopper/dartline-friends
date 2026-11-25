@@ -118,6 +118,7 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
         || typeof data.possibleBoardPoints !== 'number'
         || typeof data.possibleTipPoints !== 'number'
         || typeof data.scanCount !== 'number'
+        || typeof data.motionFps !== 'number'
         || !(data.error === null || typeof data.error === 'string')
         || typeof data.status !== 'string') return;
       // Refresh the scorer's takeout state on camera-health replies as well;
@@ -128,6 +129,7 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
       window.dispatchEvent(new CustomEvent('dartline:camera-health', {detail: {
         cameraActive: data.cameraActive, scoring: data.scoring,
         scanning: data.scanning, scanCount: data.scanCount,
+        motionFps: data.motionFps, error:data.error,
       }}));
       setReport({
         cameraActive: data.cameraActive, scoring: data.scoring, scanning: data.scanning,

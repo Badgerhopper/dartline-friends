@@ -8,6 +8,7 @@ import { VirtualBoard } from './VirtualBoard';
 import { ModePanelBlock } from './ModePanelBlock';
 import { OpponentTurnView } from './OpponentTurnView';
 import { remoteTurnOpponent } from '../lib/remoteTurn';
+import { cameraHealthLabel, type CameraHealth } from '../lib/cameraHealth';
 import type { LiveBoardView } from './VirtualBoard';
 import type { VideoFeedView } from '../hooks/useVideoFeed';
 import type { VideoFeedId } from '../../shared/media';
@@ -128,20 +129,20 @@ export function MobileMatchHUD({
       // Invalid input is not sent; the modal stays open for the user to adjust it.
     }
   };
-  const [cameraReport, setCameraReport] = useState<{
-    cameraActive: boolean; scoring: boolean; scanning: boolean; scanCount: number;
-    lastScan: number;
-  } | null>(null);
+  const [cameraReport, setCameraReport] = useState<CameraHealth | null>(null);
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
     const onHealth = (event: Event) => {
       const data=(event as CustomEvent<{
-        cameraActive: boolean; scoring: boolean; scanning: boolean; scanCount: number;
+        cameraActive:boolean; scoring:boolean; scanning:boolean;
+        scanCount:number; motionFps:number; error:string|null;
       }>).detail;
       if (!data) return;
+      const now=Date.now();
       setCameraReport(current => ({
         ...data,
-        lastScan: !current || current.scanCount !== data.scanCount ? Date.now() : current.lastScan,
+        lastHealthAt:now,
+        armedSince: current?.scanning && data.scanning ? current.armedSince : now,
       }));
     };
     window.addEventListener('dartline:camera-health', onHealth);
@@ -167,11 +168,7 @@ export function MobileMatchHUD({
       }));
     };
   },[monitorTakeout,match.id,match.currentPlayerIndex,match.visits.length]);
-  const cameraText = !cameraReport?.cameraActive ? 'Camera inactive'
-    : !cameraReport.scoring ? 'Camera not assigned'
-    : !cameraReport.scanning ? 'Auto scan off'
-    : clock - cameraReport.lastScan > 8500 ? 'AI stalled · open camera'
-    : 'AI scanning';
+  const cameraText = cameraHealthLabel(cameraReport,clock);
 
   // Turn changes arrive with the authoritative match state over WebSocket.
   // Recompute from the active player's board, never from a client-side timer.
@@ -189,11 +186,11 @@ export function MobileMatchHUD({
     <section className="dartline-mobile-hud" aria-label="DartLine mobile scoreboard">
       <div className="dartline-hud-top">
         <div className="dartline-hud-brand">
-          <span className="dartline-hud-eyebrow">DARTLINE v2.7 · {textOf(view.headline)}</span>
+          <span className="dartline-hud-eyebrow">DARTLINE v2.8 · {textOf(view.headline)}</span>
           <strong>{current?.name ?? 'Dart match'} {isMyTurn ? <em>YOUR TURN</em> : <em>THROWING</em>}</strong>
         </div>
         <div className="dartline-hud-top-actions">
-          <span className={'dartline-hud-camera-health '+(cameraText==='AI scanning'?'is-scanning':'is-warning')}
+          <span className={'dartline-hud-camera-health '+(cameraText==='Watching for dart'?'is-scanning':'is-warning')}
             aria-live="polite">{cameraText}</span>
           <button type="button" onClick={openCamera} className="dartline-hud-camera" aria-label="Open camera setup">📷 Camera</button>
           <button type="button" onClick={onLeave} className="dartline-hud-leave">Leave</button>
