@@ -39,6 +39,12 @@ describe('DartLine fast, stable dart-tip recovery', () => {
     gate.reset();
     expect(gate.observe([t(510000)],2900)).toEqual([]);
   });
+  it('retains a stable hit in the unnumbered outer board as a zero-point dart', () => {
+    const gate = new StableTipRescue();
+    const outsideDouble = t(500000 + Math.round(200 * 1_000_000 / 451),500000,.66);
+    expect(gate.observe([outsideDouble],0)).toEqual([]);
+    expect(gate.observe([outsideDouble],550)).toEqual([outsideDouble]);
+  });
   it('does not accept isolated or off-board noise', () => {
     const gate=new StableTipRescue();
     expect(gate.observe([t(530000)],0)).toEqual([]);

@@ -24,6 +24,8 @@ function screen(currentPlayerIndex: number, sameBoard = false) {
       onAddDart={()=>{}}
       onUndoDart={()=>{}}
       onCorrectDart={()=>{}}
+      onInsertDart={()=>{}}
+      onAutoTakeoutChange={()=>{}}
       onSubmitVisit={()=>{}}
       liveBoard={null}
       straightenVideo={false}

@@ -24,6 +24,8 @@ interface Props {
   onAddDart: (dart: DartThrow) => void;
   onUndoDart: () => void;
   onCorrectDart: (index: number, expectedDartId: string, dart: DartThrow) => void;
+  onInsertDart: (index: number, expectedIds: string[], dart: DartThrow) => void;
+  onAutoTakeoutChange: (enabled: boolean) => void;
   onSubmitVisit: () => void;
   liveBoard: LiveBoardView | null;
   straightenVideo: boolean;
@@ -39,10 +41,15 @@ interface Props {
  */
 export function MobileMatchHUD({
   match, view, panel, isMyTurn, ownPlayerIds, isSpectator, canAddDart,
-  onLeave, onAddDart, onUndoDart, onCorrectDart, onSubmitVisit,
+  onLeave, onAddDart, onUndoDart, onCorrectDart, onInsertDart, onAutoTakeoutChange, onSubmitVisit,
   liveBoard, straightenVideo, videoOffers, onAcceptVideo, onDeclineVideo,
 }: Props) {
   const [correctingIndex, setCorrectingIndex] = useState<number | null>(null);
+  const [editKind, setEditKind] = useState<'replace' | 'insert'>('replace');
+  const [autoTakeout, setAutoTakeout] = useState(() => {
+    try { return window.localStorage.getItem('dartline_verified_takeout_v1') === '1'; }
+    catch { return false; }
+  });
   const [sector, setSector] = useState('20');
   const [ring, setRing] = useState<ManualRing>('triple');
   const [boardOpen, setBoardOpen] = useState(false);
@@ -55,6 +62,18 @@ export function MobileMatchHUD({
   const score = textOf(view.playerScores[current?.id ?? ''] ?? '—');
   const total = textOf(view.visitTotal);
   const canCorrect = active && darts.length > 0;
+  const canInsert = active && canAddDart && darts.length < view.dartsPerVisit;
+  // The per-board setting is sent to the scoring server when a match begins.
+  // It is opt-in, since weak camera recognition must never silently advance
+  // a turn without the player's explicit preference.
+  useEffect(() => {
+    if (match.status === 'in_progress') onAutoTakeoutChange(autoTakeout);
+  }, [match.id, match.status, onAutoTakeoutChange, autoTakeout]);
+  const changeAutoTakeout = () => {
+    const next = !autoTakeout;
+    setAutoTakeout(next);
+    try { window.localStorage.setItem('dartline_verified_takeout_v1', next ? '1' : '0'); } catch {}
+  };
   const canSubmit = active && !Boolean(view.autoSubmit);
   const remaining = Number(score);
   const dartsAvailable = Math.max(0, view.dartsPerVisit - darts.length);
@@ -69,8 +88,16 @@ export function MobileMatchHUD({
   );
   const openCamera = () => window.dispatchEvent(new Event('dartline:open-camera'));
 
+  const beginMissing = (index: number) => {
+    if (!canInsert) return;
+    setEditKind('insert');
+    setCorrectingIndex(Math.min(index, darts.length));
+    setSector('20');
+    setRing('single');
+  };
   const beginCorrection = (index: number) => {
     if (!canCorrect || index < 0 || index >= darts.length) return;
+    setEditKind('replace');
     const label = darts[index]?.score.label ?? 'S20';
     const match = /^([SDT])(\\d+)$/.exec(label);
     if (match) {
@@ -85,12 +112,17 @@ export function MobileMatchHUD({
     setCorrectingIndex(index);
   };
   const applyCorrection = () => {
-    if (!canCorrect || correctingIndex === null) return;
-    const selected = darts[correctingIndex];
-    if (!selected?.id) return; // Never correct the wrong dart after an incoming camera update.
+    if (correctingIndex === null) return;
     try {
       const corrected = correctedDart(sector, sector === 'BULL' && ring === 'triple' ? 'single' : ring);
-      onCorrectDart(correctingIndex, selected.id, corrected);
+      if (editKind === 'insert') {
+        if (!canInsert || !darts.every(d => Boolean(d.id))) return;
+        onInsertDart(correctingIndex, darts.map(d => d.id!), corrected);
+      } else {
+        const selected = darts[correctingIndex];
+        if (!canCorrect || !selected?.id) return;
+        onCorrectDart(correctingIndex, selected.id, corrected);
+      }
       setCorrectingIndex(null);
     } catch {
       // Invalid input is not sent; the modal stays open for the user to adjust it.
@@ -142,7 +174,7 @@ export function MobileMatchHUD({
     <section className="dartline-mobile-hud" aria-label="DartLine mobile scoreboard">
       <div className="dartline-hud-top">
         <div className="dartline-hud-brand">
-          <span className="dartline-hud-eyebrow">DARTLINE v2.5 · {textOf(view.headline)}</span>
+          <span className="dartline-hud-eyebrow">DARTLINE v2.6 · {textOf(view.headline)}</span>
           <strong>{current?.name ?? 'Dart match'} {isMyTurn ? <em>YOUR TURN</em> : <em>THROWING</em>}</strong>
         </div>
         <div className="dartline-hud-top-actions">
@@ -178,9 +210,9 @@ export function MobileMatchHUD({
         <div className="dartline-hud-dart-row">
           {Array.from({length:view.dartsPerVisit}, (_,i) => (
             <button type="button" className="dartline-hud-dart" key={i}
-              disabled={!active || i>=darts.length}
-              aria-label={darts[i] ? `Correct dart ${i+1}: ${darts[i].score.label}` : `Dart ${i+1} not yet thrown`}
-              onClick={() => beginCorrection(i)}>
+              disabled={!active || (i>=darts.length && !canInsert)}
+              aria-label={darts[i] ? `Correct or insert before dart ${i+1}: ${darts[i].score.label}` : `Manually enter missing dart ${i+1}`}
+              onClick={() => i<darts.length ? beginCorrection(i) : beginMissing(i)}>
               <small>DART {i+1}{i<darts.length ? ' ✎' : ''}</small>
               <strong>{slots[i] === undefined ? '—' : textOf(slots[i])}</strong>
             </button>
@@ -188,6 +220,7 @@ export function MobileMatchHUD({
         </div>
       </div>
 
+      <div className="dartline-hud-slot-hint">Tap any dart slot to correct it or enter a missed throw.</div>
       {match.settings.mode === 'x01' && Number.isInteger(remaining) && remaining > 0 && remaining <= 170 && (
         <div className="dartline-hud-checkout" aria-label="X01 checkout suggestions" aria-live="polite">
           <span className="dartline-hud-checkout-caption">🎯 CHECKOUT · {dartsAvailable} {dartsAvailable===1?'DART':'DARTS'} LEFT</span>
@@ -217,6 +250,12 @@ export function MobileMatchHUD({
           {detailsOpen ? '▴ Hide history' : '▾ History'}
         </button>
       </div>
+      <button type="button" className={'dartline-hud-auto-takeout '+(autoTakeout?'is-on':'')}
+        onClick={changeAutoTakeout} aria-pressed={autoTakeout}>
+        {autoTakeout ? '✓ Auto-submit on board clear: ON' : 'Auto-submit on board clear: OFF'}
+      </button>
+      {autoTakeout && <p className="dartline-hud-takeout-note">After all 3 darts are scored, removing them submits
+        the turn only after the camera confirms an empty board twice. Check scores before retrieving.</p>}
       {panel && statsOpen && (
         <div className="dartline-hud-game-stats">
           <ModePanelBlock modeId={match.settings.mode} panel={panel} />
@@ -251,13 +290,31 @@ export function MobileMatchHUD({
           tap its numbered score on the main screen, or use Correct.</p>
       </Modal>
       <Modal opened={correctingIndex !== null} onClose={() => setCorrectingIndex(null)}
-        title="Correct a specific dart" centered size="sm" zIndex={1800}>
+        title={editKind === 'insert' ? 'Enter a missed throw' : 'Correct a specific dart'} centered size="sm" zIndex={1800}>
         <div className="dartline-hud-correction">
-          <p>Choose which dart was scored incorrectly. This changes that dart only,
-            keeping your other shots intact.</p>
-          <NativeSelect label="Which dart?" value={String(correctingIndex ?? 0)}
-            onChange={e => beginCorrection(Number(e.currentTarget.value))}
-            data={darts.map((d, i) => ({value:String(i),label:`Dart ${i+1}: ${d.score.label} (${d.score.points})`}))} />
+          <p>{editKind === 'insert'
+            ? 'Insert a missed throw at the selected position. Later scored darts move over one slot. A dart outside the number rings counts as MISS (0).'
+            : 'Correct this dart without changing the other shots. If the camera skipped a dart before this one, choose Insert missed instead.'}</p>
+          <div className="dartline-hud-edit-tabs">
+            <Button variant={editKind==='replace'?'filled':'light'} disabled={!canCorrect}
+              onClick={() => {setEditKind('replace'); setCorrectingIndex(Math.min(correctingIndex??0,darts.length-1));}}>
+              Correct score
+            </Button>
+            <Button variant={editKind==='insert'?'filled':'light'} disabled={!canInsert}
+              onClick={() => {setEditKind('insert'); setCorrectingIndex(Math.min(correctingIndex??0,darts.length));}}>
+              Insert missed
+            </Button>
+          </div>
+          <NativeSelect label={editKind==='insert'?'Insert position':'Which dart?'} value={String(correctingIndex ?? 0)}
+            onChange={e => {
+              const index=Number(e.currentTarget.value);
+              if (editKind==='insert') setCorrectingIndex(index);
+              else beginCorrection(index);
+            }}
+            data={editKind==='insert'
+              ? Array.from({length:darts.length+1},(_,i)=>({value:String(i),
+                label:i<darts.length ? `Before scored Dart ${i+1}` : `After last scored dart (Dart ${i+1})`}))
+              : darts.map((d, i) => ({value:String(i),label:`Dart ${i+1}: ${d.score.label} (${d.score.points})`}))} />
           <NativeSelect label="Segment" value={sector}
             onChange={e => { setSector(e.currentTarget.value); if (e.currentTarget.value === 'MISS') setRing('single'); }}
             data={[...Array.from({length:20},(_,i)=>String(i+1)), 'BULL', 'MISS']} />
@@ -268,9 +325,10 @@ export function MobileMatchHUD({
                 ? [{value:'single',label:'Outer bull (25)'},{value:'double',label:'Bullseye (50)'}]
                 : [{value:'single',label:'Single'},{value:'double',label:'Double'},{value:'triple',label:'Triple'}]} />
           )}
-          <Button fullWidth color="teal" disabled={!canCorrect || correctingIndex === null ||
-            !darts[correctingIndex]?.id} onClick={applyCorrection}>
-            Save correction for Dart ${(correctingIndex ?? 0)+1}
+          <Button fullWidth color="teal" disabled={correctingIndex === null ||
+            (editKind==='insert' ? !canInsert : !canCorrect || !darts[correctingIndex]?.id)}
+            onClick={applyCorrection}>
+            {editKind==='insert' ? 'Add missed dart' : `Save correction for Dart ${(correctingIndex ?? 0)+1}`}
           </Button>
         </div>
       </Modal>

@@ -7,9 +7,12 @@ import type { BoardTip } from '../../shared/vision/types';
  * stays anchored after confirmation so repeated scans do not double count it.
  */
 export const RELAXED_TIP_THRESHOLD = 0.42;
-export const TIP_MATCH_RADIUS = 13000; // ~5.9 mm in 451-mm board coordinates
+export const TIP_MATCH_RADIUS = 8000; // ~3.6 mm; preserve nearby distinct tips
 const MAX_GAP_MS = 2300;
-const DOUBLE_OUTER_RADIUS = 170 * (1_000_000 / 451);
+// The physical board extends to 225 mm; the scoring double ring ends at
+// 170 mm. A tip in the outer surround is a real 0-point throw, not noise.
+// Leave 5 mm margin to avoid clipped image-edge false detections.
+const VALID_BOARD_RADIUS = 220 * (1_000_000 / 451);
 const STANDARD_CONFIRMATIONS = 2;
 const VERY_WEAK_CONFIRMATIONS = 3;
 const VERY_WEAK_THRESHOLD = 0.50;
@@ -24,7 +27,7 @@ type Candidate = {
 function validTip(t: BoardTip): boolean {
   if (!Number.isFinite(t.x) || !Number.isFinite(t.y) || !Number.isFinite(t.confidence)) return false;
   if (t.confidence < RELAXED_TIP_THRESHOLD) return false;
-  return Math.hypot(t.x - 500000, t.y - 500000) <= DOUBLE_OUTER_RADIUS;
+  return Math.hypot(t.x - 500000, t.y - 500000) <= VALID_BOARD_RADIUS;
 }
 
 function distance(a: BoardTip, b: BoardTip): number {
