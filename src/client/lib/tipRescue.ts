@@ -7,13 +7,9 @@ import type { BoardTip } from '../../shared/vision/types';
  * stays anchored after confirmation so repeated scans do not double count it.
  */
 export const RELAXED_TIP_THRESHOLD = 0.42;
-export const TIP_MATCH_RADIUS = 8000; // ~3.6mm; keep close physical darts distinguishable
+export const TIP_MATCH_RADIUS = 13000; // ~5.9 mm in 451-mm board coordinates
 const MAX_GAP_MS = 2300;
-// Do not auto-create zero-point darts from low-confidence noise on the board
-// surround. A user can still enter an actual outer-board miss manually.
-// This is intentionally conservative until a dart-vs-background classifier
-// is validated on a physical board.
-const VALID_BOARD_RADIUS = 170 * (1_000_000 / 451);
+const DOUBLE_OUTER_RADIUS = 170 * (1_000_000 / 451);
 const STANDARD_CONFIRMATIONS = 2;
 const VERY_WEAK_CONFIRMATIONS = 3;
 const VERY_WEAK_THRESHOLD = 0.50;
@@ -28,7 +24,7 @@ type Candidate = {
 function validTip(t: BoardTip): boolean {
   if (!Number.isFinite(t.x) || !Number.isFinite(t.y) || !Number.isFinite(t.confidence)) return false;
   if (t.confidence < RELAXED_TIP_THRESHOLD) return false;
-  return Math.hypot(t.x - 500000, t.y - 500000) <= VALID_BOARD_RADIUS;
+  return Math.hypot(t.x - 500000, t.y - 500000) <= DOUBLE_OUTER_RADIUS;
 }
 
 function distance(a: BoardTip, b: BoardTip): number {
