@@ -1,7 +1,11 @@
 /**
- * Undo only the forced 1280 -> 960 downgrade introduced by DartLine v3.2.
- * Keep the conservative v4 tip detector; board localization needs the
- * higher-resolution model previously chosen on this same iPhone.
+ * Re-enable the proven higher-detail board model without changing v4
+ * conservative dart-tip recognition.
+ *
+ * v3.2 downgraded already-working iPhones from 1280 to 960. Undo that even if
+ * the browser no longer advertises GPU support. For a fresh iPhone, make the
+ * same GPU-guarded first-time choice that the older working v5 build made.
+ * Do not override a deliberate 960 selection made after the original v5 choice.
  */
 export function shouldRecoverBoardDetail(
   model: string,
@@ -11,10 +15,11 @@ export function shouldRecoverBoardDetail(
   recoveryWasApplied: string | null,
   webGpuAvailable: boolean,
 ): boolean {
-  return model === 's_960'
-    && /iPhone/i.test(userAgent)
-    && webGpuAvailable
-    && previouslyAutoSelectedDetail === 'done'
-    && downgradeWasApplied === 'done'
-    && recoveryWasApplied !== 'done';
+  if (model !== 's_960' || !/iPhone/i.test(userAgent)
+    || recoveryWasApplied === 'done') return false;
+  const undoForcedDowngrade =
+    previouslyAutoSelectedDetail === 'done' && downgradeWasApplied === 'done';
+  const sameOriginalFirstTimeChoice =
+    previouslyAutoSelectedDetail !== 'done' && webGpuAvailable;
+  return undoForcedDowngrade || sameOriginalFirstTimeChoice;
 }
