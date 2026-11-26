@@ -65,7 +65,7 @@ function delta(before:TemporalFrame,after:TemporalFrame) {
     const oldSum=oldR+oldG+oldB,newSum=newR+newG+newB;
     if(oldSum>120 && newR<oldR && newG<oldG && newB<oldB){
       const kShadow=newSum/oldSum;
-      if(kShadow>0.58 && kShadow<1){
+      if(kShadow>0.70 && kShadow<1){
         const hueError=Math.max(
           Math.abs(newR-oldR*kShadow),
           Math.abs(newG-oldG*kShadow),
