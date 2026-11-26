@@ -70,6 +70,7 @@ import { RELAXED_TIP_THRESHOLD } from '../../lib/tipRescue';""")
   // count a fourth dart, or compete with retrieval confirmation.
   const visitContext = useRef({key:'',active:false,dartsRecorded:0});
   const idleTipRecovery = useRef(new IdleTipRecovery());
+  const recoveryStats = useRef({completed:0,confirmedBatches:0});
   const movementEpoch = useRef(0);
   const latestDot = useRef(vision.motion.dot);
   const latestOnTips = useRef(onTipsWithMeter);
@@ -130,7 +131,9 @@ import { RELAXED_TIP_THRESHOLD } from '../../lib/tipRescue';""")
         if (result === null || !eligible() || initialVisit !== visitContext.current.key ||
             movementEpoch.current !== initialEpoch) return;
         const frame=vision.frameRef.current;
-        if (!frame || frame === before || !frame.result) return;
+        if (!frame || frame === before) return;
+        recoveryStats.current.completed++;
+        if (!frame.result) return;
         // Recover 0.50-0.79 confidence model candidates, but only publish
         // them once the independent temporal gate has confirmed stability.
         // The normal 0.80 threshold remains untouched.
@@ -143,6 +146,7 @@ import { RELAXED_TIP_THRESHOLD } from '../../lib/tipRescue';""")
         if (recovered.length && eligible() &&
             initialVisit === visitContext.current.key &&
             movementEpoch.current === initialEpoch) {
+          recoveryStats.current.confirmedBatches++;
           latestOnTips.current(recovered,Math.round(frame.ms));
         }
       }).catch(() => {
@@ -160,6 +164,16 @@ import { RELAXED_TIP_THRESHOLD } from '../../lib/tipRescue';""")
 
 """
     replace_one(scorer,before,inserted+before)
+
+    # All metrics remain local to the phone's scorer and its same-origin HUD.
+    # Never transmit raw images or video frames to a telemetry service.
+    replace_one(scorer,
+        '      scanCount: vision.scanCount,\n      error:',
+        '''      scanCount: vision.scanCount,
+      inferenceMs: Math.round(vision.frame?.ms ?? 0),
+      recoveryProbes: recoveryStats.current.completed,
+      recoveryConfirmed: recoveryStats.current.confirmedBatches,
+      error:''')
 
     hud=root/'src/client/components/MobileMatchHUD.tsx'
     before="  const cameraText = cameraHealthLabel(cameraReport,clock);"
@@ -212,6 +226,30 @@ import { RELAXED_TIP_THRESHOLD } from '../../lib/tipRescue';""")
         type:'dartline:visit-context', ...currentVisit.current,
       },window.location.origin);"""
     replace_one(dock,before,after)
+
+    replace_one(dock,
+        '  scanCount: number;\n  error: string | null;',
+        '''  scanCount: number;
+  inferenceMs: number;
+  recoveryProbes: number;
+  recoveryConfirmed: number;
+  error: string | null;''')
+    replace_one(dock,
+        "        || typeof data.scanCount !== 'number'",
+        """        || typeof data.scanCount !== 'number'
+        || typeof data.inferenceMs !== 'number'
+        || typeof data.recoveryProbes !== 'number'
+        || typeof data.recoveryConfirmed !== 'number'""")
+    replace_one(dock,
+        '        possibleTipPoints: data.possibleTipPoints, scanCount: data.scanCount,',
+        '''        possibleTipPoints: data.possibleTipPoints, scanCount: data.scanCount,
+        inferenceMs: data.inferenceMs, recoveryProbes: data.recoveryProbes,
+        recoveryConfirmed: data.recoveryConfirmed,''')
+    replace_one(dock,
+        '''          <span>Completed AI scans: {report.scanCount} · {report.scanning ? 'Automatic scanning on' : 'Automatic scanning off'}</span>''',
+        '''          <span>AI scans: {report.scanCount} · latest frame: {report.inferenceMs}ms</span>
+          <span>Silent recovery checks: {report.recoveryProbes} · confirmed batches: {report.recoveryConfirmed}</span>
+          <span>{report.scanning ? 'Automatic motion scanning on' : 'Automatic motion scanning off'}</span>''')
 
     (root/'src/client/public/dartline-build.txt').write_text(
         'dartline-v4-confirmed-silent-hit-recovery-2026-11-26\n',
