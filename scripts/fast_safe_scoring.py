@@ -23,6 +23,8 @@ def install(root:Path):
     for relative in [
         'src/client/lib/fastBoardClear.ts',
         'tests/unit/dartline-fast-board-clear.test.ts',
+        'src/client/lib/takeoutSceneWitness.ts',
+        'tests/unit/dartline-takeout-scene-witness.test.ts',
     ]:
         dest=root/relative
         dest.parent.mkdir(parents=True,exist_ok=True)
@@ -51,7 +53,8 @@ def install(root:Path):
     replace_one(scorer,
         "import { RemovalMonitor } from '../../lib/removalMonitor';",
         "import { RemovalMonitor } from '../../lib/removalMonitor';\n"
-        "import { FastBoardClear, FAST_CLEAR_TICK_MS } from '../../lib/fastBoardClear';")
+        "import { FastBoardClear, FAST_CLEAR_TICK_MS } from '../../lib/fastBoardClear';\n"
+        "import { TakeoutSceneWitness, readTakeoutScene } from '../../lib/takeoutSceneWitness';")
     replace_one(scorer,
         "  const meter = useRef(new LatencyMeter());",
         """  const meter = useRef(new LatencyMeter());
@@ -72,6 +75,8 @@ def install(root:Path):
   const [takeoutMonitorArmed, setTakeoutMonitorArmed] = useState(false);""",
         """  const removalMonitor = useRef(new RemovalMonitor());
   const fastBoardClear = useRef(new FastBoardClear());
+  const takeoutScene = useRef(new TakeoutSceneWitness());
+  const takeoutCanvas = useRef<HTMLCanvasElement | null>(null);
   const [takeoutMonitorArmed, setTakeoutMonitorArmed] = useState(false);""")
     replace_one(scorer,
         """      if (event.data?.type === 'dartline:takeout-monitor') {
@@ -106,6 +111,28 @@ def install(root:Path):
     }
   }, [takeoutMonitorArmed, scoring, vision.cameraActive, vision.motion.dot,
       vision.frame, vision.frameRef]);""")
+    # Independent tiny video motion check: a model that misses all the darts
+    # for several frames cannot automatically advance the match.
+    # The actual hand must enter and then EXIT the video and the picture
+    # must settle. At most 48x48 grayscale data stays within the iPhone.
+    replace_one(scorer,
+        '  // A real recorded visit with darts visible becomes the baseline for',
+        """  useEffect(() => {
+    takeoutScene.current.reset();
+    if (!takeoutMonitorArmed || !scoring || !vision.cameraActive) return;
+    const timer=window.setInterval(() => {
+      const video=vision.videoElement();
+      if (!takeoutCanvas.current) takeoutCanvas.current=document.createElement('canvas');
+      const gray=readTakeoutScene(video,takeoutCanvas.current);
+      if (gray && takeoutScene.current.observe(gray,Date.now())) {
+        fastBoardClear.current.noteRetrievalMotion();
+      }
+    },250);
+    return () => window.clearInterval(timer);
+  }, [takeoutMonitorArmed,scoring,vision.cameraActive,vision.videoElement]);
+
+  // A real recorded visit with darts visible becomes the baseline for""")
+
     # Replace ONLY the takeout interval, not the motion-triggered recognition
     # or the independent missed-throw inference.
     before="""  useEffect(() => {
@@ -201,6 +228,9 @@ def install(root:Path):
     replace_one(hud,
         'onClick={onSubmitVisit}>Submit ↗</Button>',
         "onClick={onSubmitVisit}>{autoTakeout ? 'Submit now' : 'Submit ↗'}</Button>")
+    replace_one(hud,
+        """the turn only after removal motion and two clear scans. Check scores before retrieving.""",
+        """the turn after the camera sees retrieval and confirms the board is empty. Use Submit now if the camera lags.""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
         'dartline-v4.2-faster-confirmed-scoring-2026-11-26\n',
