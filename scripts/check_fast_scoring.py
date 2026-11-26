@@ -148,6 +148,8 @@ def verify(root: Path) -> None:
             'visualBoardReturn.current.reset()' in scorer
             and 'visualBoardReturn.current.observe(image,ctx.dartsRecorded,now)' in scorer
             and 'fastBoardClear.current.noteVisualClear(now)' in scorer
+            and 'pendingRemovalWitness.current.replay(fastBoardClear.current,now)' in scorer
+            and 'pendingRemovalWitness.current.reset()' in scorer
             and 'FAST_CLEAR_PHOTO_PROOF_MS = 5000' in
               (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
             and 'this.photoClearUntil>now' in
