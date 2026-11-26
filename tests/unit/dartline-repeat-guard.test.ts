@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { matchKnownCameraTips, SAME_CAMERA_REPEAT_RADIUS } from '../../src/server/scoring/repeatGuard';
 import { filterKnownTips, clusterNewTips } from '../../src/server/scoring/cluster';
+import { DartTracker } from '../../src/server/scoring/tracker';
 import type { DartPoint } from '../../src/shared/vision/types';
 
 const point = (x:number,deviceId='phone',y=500000,confidence=.9):DartPoint=>
@@ -42,5 +43,33 @@ describe('DartLine cross-scan repeat protection', () => {
   });
   it('keeps existing within-window clustering conservative', () => {
     expect(clusterNewTips([point(500000),point(501000)])).toHaveLength(1);
+  });
+});
+
+describe('Full DartTracker duplicate score regression', () => {
+  it('one dart remains one score when its projected tip shifts between frames', () => {
+    const tracker = new DartTracker();
+    const first = tracker.ingest([{deviceId:'phone',tips:[{
+      x:560000,y:500000,confidence:.93
+    }]}]);
+    expect(first).toHaveLength(1);
+    const sameDart = tracker.ingest([{deviceId:'phone',tips:[{
+      x:568500,y:500000,confidence:.90
+    }]}]);
+    expect(sameDart).toHaveLength(0);
+    expect(tracker.count).toBe(1);
+  });
+
+  it('a genuinely second, close dart remains countable when both tips appear', () => {
+    const tracker = new DartTracker();
+    expect(tracker.ingest([{deviceId:'phone',tips:[{
+      x:560000,y:500000,confidence:.96
+    }]}])).toHaveLength(1);
+    const second = tracker.ingest([{deviceId:'phone',tips:[
+      {x:560500,y:500000,confidence:.97},
+      {x:566000,y:500000,confidence:.89},
+    ]}]);
+    expect(second).toHaveLength(1);
+    expect(tracker.count).toBe(2);
   });
 });
