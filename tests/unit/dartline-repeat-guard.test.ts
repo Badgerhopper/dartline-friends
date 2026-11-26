@@ -41,8 +41,11 @@ describe('DartLine cross-scan repeat protection', () => {
     expect(matchKnownCameraTips([point(503000,'remote')],[known(500000)]).size).toBe(0);
     expect(filterKnownTips([point(503000,'remote')],[known(500000)]).survivors).toHaveLength(0);
   });
-  it('keeps existing within-window clustering conservative', () => {
-    expect(clusterNewTips([point(500000),point(501000)])).toHaveLength(1);
+  it('preserves two distinct same-camera tip keypoints inside one window', () => {
+    // The custom single-camera rule must not merge a second real dart solely
+    // because its tip is close to the first. Exact duplicates are removed
+    // earlier in image-space keypoint deduplication.
+    expect(clusterNewTips([point(500000),point(501000)])).toHaveLength(2);
   });
 });
 
