@@ -32,8 +32,10 @@ def verify(root: Path) -> None:
             'motionRescue.current.observe' in scorer
         ),
         'Dart removal gets the camera exclusively after three scores': (
-            '!takeoutMonitorArmed && shouldScanStationaryBoard' in scorer and
-            'removalMonitor.current.claim' in scorer
+            '!takeoutMonitorArmed && shouldScanStationaryBoard' in scorer
+            and 'fastBoardClear.current.claim' in scorer
+            and 'takeoutExclusive.current=enabled' in scorer
+            and 'allowVerifiedEmpty.current=true' in scorer
         ),
         'Conservative duplicate and correction protections retained': (
             "matchKnownCameraTips" in (root/'src/server/scoring/cluster.ts').read_text(encoding='utf-8')
