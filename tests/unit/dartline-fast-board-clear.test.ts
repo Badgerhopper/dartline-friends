@@ -21,15 +21,14 @@ describe('fast independent dart-removal verifier',()=>{
     expect(scan(gate,3600,'empty')).toBeNull();
     expect(gate.emptyReportsSent).toBe(0);
   });
-  it('starts without a motion event but requires 3 independently completed empty scans',()=>{
+  it('cannot submit based only on repeated AI misses when darts remain',()=>{
     const gate=ready();
     expect(scan(gate,2000,'empty')).toBeNull();
-    expect(scan(gate,2800,'empty')).toBe('send-empty');
-    expect(scan(gate,3700,'empty')).toBe('send-empty');
-    expect(gate.emptyReportsSent).toBe(2);
-    expect(gate.claim(4600,true)).toBeNull();
+    expect(scan(gate,2800,'empty')).toBeNull();
+    expect(scan(gate,3700,'empty')).toBeNull();
+    expect(gate.emptyReportsSent).toBe(0);
   });
-  it('uses real retrieval motion to permit 2 confirmed empty scans',()=>{
+  it('uses genuine detector OR independent visual retrieval motion to confirm two empty scans',()=>{
     const gate=ready();
     gate.noteRetrievalMotion();
     expect(scan(gate,2000,'empty')).toBe('send-empty');
@@ -37,24 +36,24 @@ describe('fast independent dart-removal verifier',()=>{
   });
   it('occupied evidence cancels a suspected takeout and resets the server',()=>{
     const gate=ready();
+    gate.noteRetrievalMotion();
     const server=new VerifiedBoardClear();
-    expect(scan(gate,2000,'empty')).toBeNull();
-    expect(scan(gate,2800,'empty')).toBe('send-empty');
-    expect(server.observe(true,3,2820)).toBe(false);
-    expect(scan(gate,3700,'occupied')).toBe('send-occupied');
-    expect(server.observe(false,3,3720)).toBe(false);
-    expect(scan(gate,4600,'empty')).toBeNull();
-    expect(scan(gate,5500,'empty')).toBe('send-empty');
-    expect(server.observe(true,3,5520)).toBe(false);
-    expect(scan(gate,6400,'empty')).toBe('send-empty');
-    expect(server.observe(true,3,6420)).toBe(true);
+    expect(scan(gate,2000,'empty')).toBe('send-empty');
+    expect(server.observe(true,3,2020)).toBe(false);
+    expect(scan(gate,2800,'occupied')).toBe('send-occupied');
+    expect(server.observe(false,3,2820)).toBe(false);
+    expect(scan(gate,3700,'empty')).toBe('send-empty');
+    expect(server.observe(true,3,3720)).toBe(false);
+    expect(scan(gate,4600,'empty')).toBe('send-empty');
+    expect(server.observe(true,3,4620)).toBe(true);
   });
   it('unlocated and busy frames never count as an empty board',()=>{
     const gate=ready();
-    expect(scan(gate,2000,'empty')).toBeNull();
-    expect(scan(gate,2800,'unlocated')).toBeNull();
-    expect(scan(gate,3600,'empty')).toBeNull();
-    expect(scan(gate,4400,'skipped')).toBeNull();
+    gate.noteRetrievalMotion();
+    expect(scan(gate,2000,'unlocated')).toBeNull();
+    expect(scan(gate,2800,'skipped')).toBeNull();
+    expect(scan(gate,3600,'empty')).toBe('send-empty');
+    expect(scan(gate,4400,'occupied')).toBe('send-occupied');
     expect(scan(gate,5300,'empty')).toBe('send-empty');
   });
   it('a competing inference is retried and never consumes a confirmation',()=>{
