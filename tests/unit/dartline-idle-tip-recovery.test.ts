@@ -46,6 +46,22 @@ describe('DartLine fallback for throws with NO motion trigger',()=>{
     expect(second).toHaveLength(2);
     expect(second.some(t=>t.x>565000)).toBe(true);
   });
+  it('tolerates one missed inference but requires extra evidence after a gap',()=>{
+    const gate=new IdleTipRecovery();
+    expect(gate.observe([tip(560000)],1000)).toEqual([]);
+    expect(gate.observe([],3200)).toEqual([]);
+    expect(gate.observe([tip(560800)],5400)).toEqual([]);
+    expect(gate.observe([tip(560600)],7600)).toHaveLength(1);
+  });
+  it('does not promote a single false prediction separated by blank frames',()=>{
+    const gate=new IdleTipRecovery();
+    gate.observe([tip(560000)],1000);
+    gate.observe([],3200);
+    expect(gate.observe([tip(560600)],5400)).toEqual([]);
+    gate.observe([],7600);
+    gate.observe([],9800);
+    expect(gate.observe([tip(560000)],12000)).toEqual([]);
+  });
   it('does not score spurious out-of-ring misses on static scans',()=>{
     const gate=new IdleTipRecovery();
     expect(gate.observe([tip(990000)],1000)).toEqual([]);
@@ -68,7 +84,8 @@ describe('DartLine fallback for throws with NO motion trigger',()=>{
     gate.observe([tip(550000)],1000);
     gate.observe([tip(551000)],3200);
     gate.observe([],5400);
-    expect(gate.observe([tip(550000)],7600)).toEqual([]);
-    expect(gate.observe([tip(550300)],9800)).toHaveLength(1);
+    gate.observe([],7600);
+    expect(gate.observe([tip(550000)],9800)).toEqual([]);
+    expect(gate.observe([tip(550300)],12000)).toHaveLength(1);
   });
 });
