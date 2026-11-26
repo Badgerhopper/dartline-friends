@@ -44,16 +44,33 @@ def verify(root: Path) -> None:
             and 'return refineHomographyWithInliers(src, dst, best.matrix, threshold);'
             in (root/'src/shared/vision/homography.ts').read_text(encoding='utf-8')
         ),
+        'Independent scoring never publishes unconfirmed inference': (
+            'inferCandidates: () => busy || !camera.active' in runtime
+            and 'if (publishTips && (tips.length > 0 || publishEmpty)) onTips(tips);' in runtime
+        ),
+        'Motion-free recovery confirms actual candidate frames': (
+            'runtime.inferCandidates()' in scorer
+            and 'idleTipRecovery.current.observe(relaxed.tips,Date.now())' in scorer
+            and 'movementEpoch.current !== initialEpoch' in scorer
+        ),
+        'No AI recovery after three registered darts or during retrieval': (
+            'ctx.active && ctx.key.length>0 && ctx.dartsRecorded<3' in scorer
+            and '!takeoutMonitorArmed && scoring' in scorer
+        ),
+        'Match turn identity reaches the camera iframe': (
+            "type:'dartline:visit-context'" in dock
+            and 'const currentVisit = useRef(' in dock
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v3.7-refined-board-geometry-2026-11-26'
-            and 'DARTLINE v3.7' in hud
+            marker == 'dartline-v4-confirmed-silent-hit-recovery-2026-11-26'
+            and 'DARTLINE v4.0' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
     for name, success in checks.items():
         print(('PASS' if success else 'FAIL') + ': ' + name)
     if failed:
-        raise RuntimeError('DartLine v3.7 assembly checks failed: ' + ', '.join(failed))
+        raise RuntimeError('DartLine v4 assembly checks failed: ' + ', '.join(failed))
 
 if __name__ == '__main__':
     try:
