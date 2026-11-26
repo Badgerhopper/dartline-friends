@@ -5,9 +5,9 @@
  * to 20 seconds (or fail completely). Instead we use actual board-located AI
  * frames. The server still requires TWO separate, timed empty reports.
  *
- * A correctly recognised occupied board is required before any empty signal.
- * Without observed retrieval motion, require two empty frames BEFORE the
- * first server report. One-frame disappearance never submits a visit.
+ * A correctly recognised occupied board AND a retrieval witness (real
+ * detector motion or a separate low-resolution scene change) are required.
+ * An AI that repeatedly misses stationary darts must NEVER submit a turn.
  */
 export const FAST_CLEAR_TICK_MS = 450;
 export const FAST_CLEAR_ARM_GRACE_MS = 700;
@@ -98,11 +98,10 @@ export class FastBoardClear {
     if (!this.seenOccupied) return null;
 
     this.consecutiveEmpty++;
-    // With no reliable hand-motion event, first establish TWO independent
-    // empty frames before counting either as a server confirmation.
-    // A genuine retrieval motion permits one fewer proof frame.
-    const minimum = this.sawRetrievalMotion ? 1 : 2;
-    if (this.consecutiveEmpty < minimum || this.emptySent >= 2) return null;
+    // A blind model can return [] for every frame while real darts remain.
+    // A physical retrieval witness is mandatory, independently of the AI.
+    // The server still requires two board-located and timed empty reports.
+    if (!this.sawRetrievalMotion || this.emptySent >= 2) return null;
     if (this.emptySent > 0 && now - this.lastEmptySentAt < FAST_CLEAR_SERVER_SPACING_MS) return null;
 
     this.emptySent++;
