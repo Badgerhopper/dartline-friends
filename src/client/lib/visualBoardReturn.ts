@@ -11,30 +11,35 @@ export const BOARD_RETURN_MIN_HOLD_MS=650;
 const PIXEL_CHANGE=26;
 const SAMPLE_STEP=1; // exactly 256x256 for reliable thin flight evidence
 
+function median(a:number[]):number {
+  a.sort((x,y)=>x-y);
+  return a[a.length>>1]||0;
+}
 function difference(a:TemporalFrame,b:TemporalFrame):number {
   if(a.width!==b.width||a.height!==b.height||
      a.data.length!==b.data.length)return 1;
   const n=a.width*a.height;
-  let brightness=0,source=0;
-  // Remove uniform sensor exposure change without matching shadows to darts.
-  const offsets:number[]=[];
-  for(let i=0;i<n;i+=37){
+  const rs:number[]=[],gs:number[]=[],bs:number[]=[];
+  // Exposure shifts and some white-balance changes affect the entire image.
+  // Subtract them independently, without erasing same-brightness colored darts.
+  for(let i=0;i<n;i+=37) {
     const k=i*4;
-    const av=(a.data[k]+a.data[k+1]+a.data[k+2])/3;
-    const bv=(b.data[k]+b.data[k+1]+b.data[k+2])/3;
-    offsets.push(bv-av);
+    rs.push(b.data[k]-a.data[k]);
+    gs.push(b.data[k+1]-a.data[k+1]);
+    bs.push(b.data[k+2]-a.data[k+2]);
   }
-  offsets.sort((x,y)=>x-y);
-  brightness=offsets[offsets.length>>1]||0;
-  let changed=0;
+  const ro=median(rs),go=median(gs),bo=median(bs);
+  let changed=0,total=0;
   for(let i=0;i<n;i+=SAMPLE_STEP){
     const k=i*4;
-    const av=(a.data[k]+a.data[k+1]+a.data[k+2])/3;
-    const bv=(b.data[k]+b.data[k+1]+b.data[k+2])/3;
-    if(Math.abs(bv-av-brightness)>PIXEL_CHANGE)changed++;
-    source++;
+    const d=Math.max(
+      Math.abs(b.data[k]-a.data[k]-ro),
+      Math.abs(b.data[k+1]-a.data[k+1]-go),
+      Math.abs(b.data[k+2]-a.data[k+2]-bo));
+    if(d>PIXEL_CHANGE)changed++;
+    total++;
   }
-  return source?changed/source:1;
+  return total?changed/total:1;
 }
 export class VisualBoardReturn {
   private empty:TemporalFrame|null=null;
