@@ -15,12 +15,12 @@ describe('independent retrieval scene witness',()=>{
     expect(monitor.observe(still(130),1600)).toBe(false);
     expect(monitor.observe(still(130),1900)).toBe(false);
   });
-  it('detects real hand motion followed by two quiet video frames',()=>{
+  it('does not confuse a stationary hand still blocking the board with retrieval',()=>{
     const monitor=new TakeoutSceneWitness(), baseline=still(), moving=hand(baseline);
     expect(monitor.observe(baseline,1000)).toBe(false);
     expect(monitor.observe(moving,1300)).toBe(false);
     expect(monitor.observe(moving,1600)).toBe(false);
-    expect(monitor.observe(moving,1900)).toBe(true);
+    expect(monitor.observe(moving,1900)).toBe(false);
     expect(monitor.observe(moving,2200)).toBe(false);
   });
   it('can confirm when the hand exits and the board is stable again',()=>{
