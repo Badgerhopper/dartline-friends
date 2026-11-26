@@ -47,6 +47,7 @@ def verify(root: Path) -> None:
         'Independent scoring never publishes unconfirmed inference': (
             'inferCandidates: () => busy || !camera.active' in runtime
             and 'if (publishTips && (tips.length > 0 || publishEmpty)) onTips(tips);' in runtime
+            and 'if (result && publishTips)' in runtime
         ),
         'Motion-free recovery confirms actual candidate frames': (
             'runtime.inferCandidates()' in scorer
