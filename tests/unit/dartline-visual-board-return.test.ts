@@ -29,6 +29,20 @@ describe('physical empty-board return evidence does not depend on AI or hand mot
    expect(gate.observe(empty,3,3130)).toBe(true);
    expect(gate.observe(empty,3,3500)).toBe(false);
  });
+ it('never overwrites the first empty reference while the first score is delayed',()=>{
+   const gate=new VisualBoardReturn(),empty=frame(),full=addDart(empty);
+   gate.observe(empty,0,1000);
+   gate.observe(empty,0,1250);
+   expect(gate.hasEmptyReference).toBe(true);
+   // Physical dart arrives, but the WebSocket scoreboard still says 0.
+   for(const t of [1500,1750,2000,2250,2500])
+     gate.observe(full,0,t);
+   gate.observe(full,1,2750);
+   expect(gate.hasSeenPhysicalDarts).toBe(true);
+   gate.observe(full,3,3000);
+   gate.observe(empty,3,3400);
+   expect(gate.observe(empty,3,4100)).toBe(true);
+ });
  it('will not submit merely because the model predicted an empty board',()=>{
    const gate=new VisualBoardReturn(),empty=frame();
    gate.observe(empty,0,1000);gate.observe(empty,0,1300);
