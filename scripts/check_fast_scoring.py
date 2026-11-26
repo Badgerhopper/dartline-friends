@@ -38,16 +38,22 @@ def verify(root: Path) -> None:
         'Conservative duplicate and correction protections retained': (
             "matchKnownCameraTips" in (root/'src/server/scoring/cluster.ts').read_text(encoding='utf-8')
         ),
+        'Precise board pose refit is installed after robust RANSAC': (
+            "import { refineHomographyWithInliers } from './homographyRefine';"
+            in (root/'src/shared/vision/homography.ts').read_text(encoding='utf-8')
+            and 'return refineHomographyWithInliers(src, dst, best.matrix, threshold);'
+            in (root/'src/shared/vision/homography.ts').read_text(encoding='utf-8')
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v3.6-fast-camera-verified-takeout-2026-11-26'
-            and 'DARTLINE v3.6' in hud
+            marker == 'dartline-v3.7-refined-board-geometry-2026-11-26'
+            and 'DARTLINE v3.7' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
     for name, success in checks.items():
         print(('PASS' if success else 'FAIL') + ': ' + name)
     if failed:
-        raise RuntimeError('DartLine v3.6 assembly checks failed: ' + ', '.join(failed))
+        raise RuntimeError('DartLine v3.7 assembly checks failed: ' + ', '.join(failed))
 
 if __name__ == '__main__':
     try:
