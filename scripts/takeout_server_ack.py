@@ -89,13 +89,6 @@ export interface CorrectDartMessage {""")
         if (this.verifiedClear.observe(freshUnanimous && eligible,
           dartCount,Date.now()) && match) {
           this.takeoutReason='Board confirmed empty, submitting visit';""")
-    patch(session,
-      """    this.verifiedClear.reset();
-    this.consecutiveEmpty = 0;""",
-      """    this.verifiedClear.reset();
-    this.takeoutReason='Darts remain visible';
-    this.consecutiveEmpty = 0;""")
-
     verified=root/"src/server/scoring/verifiedBoardClear.ts"
     patch(verified,
       "  private confirmed = 0;\\n",
@@ -161,7 +154,7 @@ export interface CorrectDartMessage {""")
   const changeAutoTakeout = () => {""")
     patch(hud,
       """      {autoTakeout && <p className="dartline-hud-takeout-note">After all 3 darts are scored, removing them submits
-        the turn only after removal motion and two clear scans. Check scores before retrieving.</p>}""",
+        the turn after the camera sees retrieval and confirms the board is empty. Use Submit now if the camera lags.</p>}""",
       """      {autoTakeout && <p className="dartline-hud-takeout-note">
         {takeoutServer?.enabled
           ? (takeoutServer.cameraCount===0
