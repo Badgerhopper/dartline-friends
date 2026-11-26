@@ -15,6 +15,7 @@ export const FAST_CLEAR_FRAME_SPACING_MS = 550;
 export const FAST_CLEAR_SERVER_SPACING_MS = 800;
 export const FAST_CLEAR_RETRY_MS = 2700;
 export const FAST_CLEAR_MAX_PAIRS = 3;
+export const FAST_CLEAR_PHOTO_PROOF_MS = 5000;
 
 export type ClearFrame = 'occupied' | 'empty' | 'unlocated' | 'skipped';
 export type ClearAction = 'send-empty' | 'send-occupied' | null;
@@ -31,6 +32,7 @@ export class FastBoardClear {
   private consecutiveEmpty = 0;
   private emptySent = 0;
   private completedPairs = 0;
+  private photoClearUntil = 0;
 
   reset(): void {
     this.active = false;
@@ -44,6 +46,7 @@ export class FastBoardClear {
     this.consecutiveEmpty = 0;
     this.emptySent = 0;
     this.completedPairs = 0;
+    this.photoClearUntil = 0;
   }
 
   arm(enabled: boolean, now: number, seenOccupied = false): void {
@@ -61,6 +64,17 @@ export class FastBoardClear {
 
   noteRetrievalMotion(): void {
     if (this.active) this.sawRetrievalMotion = true;
+  }
+
+  /** Stronger than a generic hand-motion event. The independently matched
+   * pre-throw EMPTY photo first had to become visibly OCCUPIED, then remain
+   * visually EMPTY for >=650ms. This can veto a phantom model tip for a
+   * short verification window only; camera geometry must still be located
+   * in two fresh scans. Never call from an unverified inference. */
+  noteVisualClear(now:number):void {
+    if(!this.active || !this.seenOccupied || !Number.isFinite(now))return;
+    this.sawRetrievalMotion=true;
+    this.photoClearUntil=now+FAST_CLEAR_PHOTO_PROOF_MS;
   }
 
   claim(now: number, cameraReady: boolean): number | null {
@@ -91,6 +105,11 @@ export class FastBoardClear {
     if (!Number.isFinite(now)) return null;
     if (this.lastCompletedAt && now - this.lastCompletedAt < FAST_CLEAR_FRAME_SPACING_MS) return null;
     this.lastCompletedAt = now;
+
+    // A real photo sequence showing darts PRESENT then the same board EMPTY
+    // is more reliable than the neural network hallucinating a stationary
+    // point on an empty sisal/wire patch. This override expires quickly.
+    if(frame==='occupied' && this.photoClearUntil>now) frame='empty';
 
     if (frame === 'occupied') {
       this.seenOccupied = true;
@@ -129,4 +148,5 @@ export class FastBoardClear {
   get emptyReportsSent(): number { return this.emptySent; }
   get retriesUsed(): number { return Math.max(0,this.completedPairs-1); }
   get hasRetrievalWitness(): boolean { return this.sawRetrievalMotion; }
+  get hasStrongPhotoClear(): boolean { return this.photoClearUntil>0; }
 }
