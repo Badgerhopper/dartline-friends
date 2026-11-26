@@ -107,16 +107,21 @@ export class IdleTipRecovery {
       });
     }
 
-    const newlyConfirmed: BoardTip[] = [];
+    let newlyConfirmed = false;
     for (const candidate of next) {
       if (candidate.emitted) continue;
       const strongest = Math.max(...candidate.observations.map(o => o.confidence));
       const required = strongest >= IDLE_RECOVERY_STRONG_CONFIDENCE ? 2 : 3;
       if (candidate.count < required) continue;
       candidate.emitted = true;
-      newlyConfirmed.push(representative(candidate));
+      newlyConfirmed = true;
     }
     this.candidates = next;
-    return newlyConfirmed;
+    // Critical server contract: publish existing confirmed witnesses alongside
+    // a newly visible close dart. The server matches the known tip to itself
+    // before adding the close newcomer. Sending only the newcomer would make
+    // it look like positional jitter of the old dart and suppress the hit.
+    // No new confirmation means NO network report from background scanning.
+    return newlyConfirmed ? next.filter(c => c.emitted).map(representative) : [];
   }
 }
