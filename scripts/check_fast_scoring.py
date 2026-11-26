@@ -85,7 +85,8 @@ def verify(root: Path) -> None:
             'fastBoardClear.current.claim(' in scorer
             and 'runtime.inferCandidates()' in scorer
             and 'allowVerifiedEmpty.current=true' in scorer
-            and 'takeoutExclusive.current && !allowVerifiedEmpty.current' in scorer
+            and 'mayPublishScorerTips({' in scorer
+            and 'explicitlyVerified:allowVerifiedEmpty.current' in scorer
             and 'relaxed.tips.length' in scorer
             and 'takeoutScene.current.observe(gray,Date.now(),' in scorer
             and 'fastBoardClear.current.noteRetrievalMotion()' in scorer
