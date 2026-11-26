@@ -169,13 +169,17 @@ import { RELAXED_TIP_THRESHOLD } from '../../lib/tipRescue';""")
     match.currentPlayerIndex].join(':');
   const ownsVisit = active && !remoteOpponent && match.status === 'in_progress';
   useEffect(() => {
-    const announce=(isActive:boolean) => window.dispatchEvent(
-      new CustomEvent('dartline:visit-context',{detail:{
-        key:visitIdentity, active:isActive, dartsRecorded:darts.length,
-      }}));
-    announce(ownsVisit);
-    return () => announce(false);
+    window.dispatchEvent(new CustomEvent('dartline:visit-context',{detail:{
+      key:visitIdentity, active:ownsVisit, dartsRecorded:darts.length,
+    }}));
   }, [visitIdentity,ownsVisit,darts.length]);
+  // Disarm only on an actual scoreboard unmount. A dart-count re-render
+  // must not briefly disarm the scorer and discard other pending tips.
+  useEffect(() => () => {
+    window.dispatchEvent(new CustomEvent('dartline:visit-context',{detail:{
+      key:'',active:false,dartsRecorded:0,
+    }}));
+  }, []);
 """
     replace_one(hud,before,inserted+before)
 
