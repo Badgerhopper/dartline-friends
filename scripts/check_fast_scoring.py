@@ -73,9 +73,25 @@ def verify(root: Path) -> None:
             '!takeoutMonitorArmed' in scorer
             and 'takeoutMonitorArmed, hint:ctx' in scorer
         ),
+        'Full-speed scanner preserves two or three independent confirmations': (
+            'IDLE_RECOVERY_INTERVAL_MS = 950' in
+                (root/'src/client/lib/idleTipRecovery.ts').read_text(encoding='utf-8')
+            and 'candidate.count < required' in
+                (root/'src/client/lib/idleTipRecovery.ts').read_text(encoding='utf-8')
+        ),
+        'No motion gate or blind empty submission for verified takeout': (
+            'fastBoardClear.current.claim(' in scorer
+            and 'runtime.inferCandidates()' in scorer
+            and 'allowVerifiedEmpty.current=true' in scorer
+            and 'takeoutExclusive.current && !allowVerifiedEmpty.current' in scorer
+            and 'relaxed.tips.length' in scorer
+        ),
+        'Manual submit remains possible if auto-submit lags': (
+            "autoTakeout ? 'Submit now'" in hud
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v4.1-active-scoring-recovery-2026-11-26'
-            and 'DARTLINE v4.1' in hud
+            marker == 'dartline-v4.2-faster-confirmed-scoring-2026-11-26'
+            and 'DARTLINE v4.2' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
