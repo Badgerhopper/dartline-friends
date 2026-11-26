@@ -22,6 +22,8 @@ type Candidate = {
   count: number;
   lastSeen: number;
   emitted: boolean;
+  missedFrames: number;
+  intermittent: boolean;
 };
 
 function valid(tip: BoardTip): boolean {
@@ -73,14 +75,18 @@ export class IdleTipRecovery {
     this.lastScanAt = now;
 
     const eligible = tips.filter(valid);
-    if (!eligible.length) {
-      this.candidates = [];
-      return [];
-    }
-
     const prior = this.candidates.filter(c =>
       now >= c.lastSeen && now - c.lastSeen <= IDLE_RECOVERY_MAX_GAP_MS
     );
+    if (!eligible.length) {
+      // The model may miss a genuine physical tip in one inference. Keep
+      // its evidence for ONE gap, but do not promote a single glitch.
+      // Two consecutive board-located empty reports clear all candidates.
+      this.candidates = prior.filter(c => c.missedFrames < 1).map(c => ({
+        ...c, missedFrames:c.missedFrames + 1, intermittent:true,
+      }));
+      return [];
+    }
     const next: Candidate[] = [];
     const usedPrior = new Set<number>();
     const sorted = [...eligible].sort((a, b) => b.confidence - a.confidence);
@@ -104,14 +110,24 @@ export class IdleTipRecovery {
         count: (previous?.count ?? 0) + 1,
         lastSeen: now,
         emitted: previous?.emitted ?? false,
+        missedFrames: 0,
+        intermittent: Boolean(previous?.intermittent || previous?.missedFrames),
       });
+    }
+    // Maintain one missing-frame witness, particularly when a newly
+    // arriving dart obscures the earlier physical tip from this camera.
+    for (let i=0;i<prior.length;i++) {
+      if (!usedPrior.has(i) && prior[i].missedFrames < 1) {
+        next.push({...prior[i],missedFrames:prior[i].missedFrames+1,
+          intermittent:true});
+      }
     }
 
     let newlyConfirmed = false;
     for (const candidate of next) {
       if (candidate.emitted) continue;
       const strongest = Math.max(...candidate.observations.map(o => o.confidence));
-      const required = strongest >= IDLE_RECOVERY_STRONG_CONFIDENCE ? 2 : 3;
+      const required = strongest >= IDLE_RECOVERY_STRONG_CONFIDENCE && !candidate.intermittent ? 2 : 3;
       if (candidate.count < required) continue;
       candidate.emitted = true;
       newlyConfirmed = true;
