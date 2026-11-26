@@ -34,6 +34,37 @@ describe('fast independent dart-removal verifier',()=>{
     expect(scan(gate,2000,'empty')).toBe('send-empty');
     expect(scan(gate,2900,'empty')).toBe('send-empty');
   });
+  it('retries a lost two-empty submission pair without additional hand motion',()=>{
+    const gate=ready();
+    gate.noteRetrievalMotion();
+    expect(scan(gate,2000,'empty')).toBe('send-empty');
+    expect(scan(gate,2900,'empty')).toBe('send-empty');
+    // Previously the gate NEVER retried after sending exactly two.
+    expect(gate.claim(3900,true)).toBeNull();
+    expect(scan(gate,5700,'empty')).toBe('send-empty');
+    expect(scan(gate,6600,'empty')).toBe('send-empty');
+    expect(gate.retriesUsed).toBe(1);
+  });
+  it('limits repeated empty-report pairs and will not flood the server forever',()=>{
+    const gate=ready();
+    gate.noteRetrievalMotion();
+    for(const offset of [0,3800,7600]){
+      expect(scan(gate,2000+offset,'empty')).toBe('send-empty');
+      expect(scan(gate,2900+offset,'empty')).toBe('send-empty');
+    }
+    expect(gate.claim(15000,true)).toBeNull();
+    expect(gate.retriesUsed).toBe(2);
+  });
+  it('will not retry a pair if a new visit begins before the delayed scan',()=>{
+    const gate=ready();
+    gate.noteRetrievalMotion();
+    scan(gate,2000,'empty');
+    scan(gate,2900,'empty');
+    gate.arm(false,3500);
+    gate.arm(true,4500,false);
+    expect(scan(gate,5400,'empty')).toBeNull();
+    expect(gate.retriesUsed).toBe(0);
+  });
   it('occupied evidence cancels a suspected takeout and resets the server',()=>{
     const gate=ready();
     gate.noteRetrievalMotion();
