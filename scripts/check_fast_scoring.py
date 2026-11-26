@@ -108,9 +108,22 @@ def verify(root: Path) -> None:
             and 'this.sawRetrievalMotion' in
              (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
         ),
+        'Server takeout setting is idempotent, confirmed and reconnect-safe': (
+            'if(this.takeoutMode===desired) return;' in
+              (root/'src/server/scoring/session.ts').read_text(encoding='utf-8')
+            and "type:'verified_takeout_status'" in
+              (root/'src/server/wsHandler.ts').read_text(encoding='utf-8')
+            and 'window.setInterval(() => onAutoTakeoutChange(true),5000)' in hud
+        ),
+        'UI reports verified server takeout confirmation, not just local toggle': (
+            'takeoutServer?.enabled' in hud
+            and 'takeoutServer.confirmations===1' in hud
+            and "'dartline:verified-takeout-status'" in
+              (root/'src/client/hooks/useMatch.ts').read_text(encoding='utf-8')
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v4.3-reliable-repeat-visits-2026-11-26'
-            and 'DARTLINE v4.3' in hud
+            marker == 'dartline-v4.4-takeout-ack-and-diagnostics-2026-11-26'
+            and 'DARTLINE v4.4' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
