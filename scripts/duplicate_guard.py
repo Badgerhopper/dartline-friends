@@ -93,7 +93,10 @@ import { MotionRescueGate } from '../../lib/motionRescueGate';""")
   }, [vision.motion.dot]);
 
   useEffect(() => {
-    const ready = () => shouldScanStationaryBoard({
+    // After three darts are recorded, removal verification owns the camera.
+    // The ordinary positive-only backup scan must not compete with its
+    // board-clear frames or delay automatic submission.
+    const ready = () => !takeoutMonitorArmed && shouldScanStationaryBoard({
       scoring, cameraActive: vision.cameraActive, motionArmed: vision.motion.armed,
       cameraView: view, visibility: document.visibilityState,
     });
@@ -111,7 +114,7 @@ import { MotionRescueGate } from '../../lib/motionRescueGate';""")
       }).catch(() => { motionRescue.current.finish(token, false); });
     }, 650);
     return () => window.clearInterval(timer);
-  }, [scoring, vision.cameraActive, vision.motion.armed,
+  }, [scoring, takeoutMonitorArmed, vision.cameraActive, vision.motion.armed,
       vision.runtimeRef, vision.frameRef, view]);""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
