@@ -216,3 +216,13 @@
   color:#add4c6; line-height:1.4; margin:2px 4px 8px;}
 .dartline-hud-edit-tabs {display:grid; grid-template-columns:1fr 1fr; gap:8px;}
 .dartline-hud-edit-tabs button {min-width:0; font-size:12px; padding:4px 5px;}
+
+/* DartLine v5: a clearly labeled, non-authoritative shaft estimate. */
+.dartline-hud-temporal-guess {
+  display:flex; flex-direction:column; gap:5px; padding:9px 11px;
+  background:#17344a; color:#e7f7ff; border:1px solid #5b96b2;
+  border-radius:9px; margin:5px 0 8px; font-size:12px; line-height:1.4;
+}
+.dartline-hud-temporal-guess strong {font-size:13px;color:#fff;}
+.dartline-hud-temporal-guess span {font-size:11px;color:#bdd8e8;}
+.dartline-hud-temporal-actions {display:flex; gap:8px; flex-wrap:wrap;}
