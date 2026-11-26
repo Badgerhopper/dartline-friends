@@ -81,7 +81,7 @@ import { scoreFromBoardCoords } from '../../../shared/scoring';""")
         // start-of-visit reference for >=650ms before this signal fires.
         if(visualBoardReturn.current.observe(image,ctx.dartsRecorded,now)
            && takeoutExclusive.current && ctx.dartsRecorded===3)
-          fastBoardClear.current.noteRetrievalMotion();
+          fastBoardClear.current.noteVisualClear(now);
       }
       if(takeoutExclusive.current || !ctx.active || ctx.dartsRecorded>=3
          || !ctx.key)return;
