@@ -26,6 +26,8 @@ def install(root:Path):
     for rel in (
         'src/client/lib/temporalDartEvidence.ts',
         'src/client/lib/visualBoardReturn.ts',
+        'src/client/lib/pendingRemovalWitness.ts',
+        'tests/unit/dartline-pending-removal-witness.test.ts',
         'src/client/lib/takeoutSceneWitness.ts',
         'tests/unit/dartline-temporal-evidence.test.ts',
         'tests/unit/dartline-visual-board-return.test.ts',
@@ -41,6 +43,7 @@ def install(root:Path):
       """import { VisitTipEvidence } from '../../lib/visitTipEvidence';
 import { TemporalDartTracker, readTemporalCamera, TEMPORAL_POLL_MS } from '../../lib/temporalDartEvidence';
 import { VisualBoardReturn } from '../../lib/visualBoardReturn';
+import { PendingRemovalWitness } from '../../lib/pendingRemovalWitness';
 import { transformPoint } from '../../../shared/vision/homography';
 import { sliderValueToLensK1, undistortNormalizedPoint } from '../../../shared/vision/lensDistortion';
 import { scoreFromBoardCoords } from '../../../shared/scoring';""")
@@ -49,6 +52,7 @@ import { scoreFromBoardCoords } from '../../../shared/scoring';""")
       """  const idleTipRecovery = useRef(new IdleTipRecovery());
   const temporalDartTracker = useRef(new TemporalDartTracker());
   const visualBoardReturn = useRef(new VisualBoardReturn());
+  const pendingRemovalWitness = useRef(new PendingRemovalWitness());
   const temporalCanvas = useRef<HTMLCanvasElement | null>(null);""")
     patch(scorer,
       """      if (old.key !== msg.key || (old.active && !msg.active)) idleTipRecovery.current.reset();""",
@@ -56,6 +60,7 @@ import { scoreFromBoardCoords } from '../../../shared/scoring';""")
         idleTipRecovery.current.reset();
         temporalDartTracker.current.reset();
         visualBoardReturn.current.reset();
+        pendingRemovalWitness.current.reset();
       }""")
 
     # A separate 256px frame sampler runs continuously while the scoring
@@ -80,8 +85,10 @@ import { scoreFromBoardCoords } from '../../../shared/scoring';""")
         // A previously occupied camera image must return to its own empty
         // start-of-visit reference for >=650ms before this signal fires.
         if(visualBoardReturn.current.observe(image,ctx.dartsRecorded,now)
-           && takeoutExclusive.current && ctx.dartsRecorded===3)
+           && takeoutExclusive.current && ctx.dartsRecorded===3) {
+          pendingRemovalWitness.current.sawPhotoClear(now);
           fastBoardClear.current.noteVisualClear(now);
+        }
       }
       if(takeoutExclusive.current || !ctx.active || ctx.dartsRecorded>=3
          || !ctx.key)return;
@@ -167,8 +174,11 @@ import { scoreFromBoardCoords } from '../../../shared/scoring';""")
         takeoutCanvas.current=document.createElement('canvas');
       const gray=readTakeoutScene(video,takeoutCanvas.current);
       if(gray && takeoutScene.current.observe(gray,Date.now(),
-        takeoutExclusive.current))
+        takeoutExclusive.current)){
+        const at=Date.now();
+        pendingRemovalWitness.current.sawHand(at);
         fastBoardClear.current.noteRetrievalMotion();
+      }
     },200);
     return () => window.clearInterval(timer);
   }, [takeoutMonitorPrepared,scoring,vision.cameraActive,vision.refs.video]);""")
@@ -177,7 +187,8 @@ import { scoreFromBoardCoords } from '../../../shared/scoring';""")
       visitTipEvidence.current.seenDuringThisVisit);""",
       """    fastBoardClear.current.arm(enabled, now,
       visitTipEvidence.current.seenDuringThisVisit ||
-      visitContext.current.dartsRecorded===3);""")
+      visitContext.current.dartsRecorded===3);
+    pendingRemovalWitness.current.replay(fastBoardClear.current,now);""")
 
     # Early preparation remains disabled in the scorer until exactly THREE
     # scorecard darts are recorded. No privacy/side effects when option OFF.
