@@ -201,6 +201,31 @@ import { scoreFromBoardCoords } from '../../../shared/scoring';""")
       "  },[monitorTakeout,match.id,match.currentPlayerIndex,match.visits.length]);",
       "  },[monitorTakeout,prepareTakeout,match.id,match.currentPlayerIndex,match.visits.length]);")
 
+    # Unlike the old React effect, a dart-count re-render MUST NOT briefly
+    # disarm takeout preparation. Only unmount or an actual disabled/other
+    # player render should dispatch a false state.
+    patch(hud,
+      """  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('dartline:takeout-monitor', {
+      detail:{armed:monitorTakeout,prepare:prepareTakeout},
+    }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('dartline:takeout-monitor', {
+        detail:{armed:false,prepare:false},
+      }));
+    };
+  },[monitorTakeout,prepareTakeout,match.id,match.currentPlayerIndex,match.visits.length]);""",
+      """  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('dartline:takeout-monitor', {
+      detail:{armed:monitorTakeout,prepare:prepareTakeout},
+    }));
+  },[monitorTakeout,prepareTakeout,match.id,match.currentPlayerIndex,match.visits.length]);
+  useEffect(() => () => {
+    window.dispatchEvent(new CustomEvent('dartline:takeout-monitor',{
+      detail:{armed:false,prepare:false},
+    }));
+  },[]);""")
+
     # The turn key is derived from server match state (not a local guess).
     patch(hud,
       """  const ownsVisit = active && !remoteOpponent && match.status === 'in_progress';""",
