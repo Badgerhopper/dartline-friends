@@ -61,7 +61,11 @@ export class TakeoutSceneWitness {
     if (changed>=TAKEOUT_CHANGE_RATIO && now-this.baselineAt >= 200) {
       this.moved=true;
     }
-    this.stableFrames=this.moved && quiet <= TAKEOUT_QUIET_RATIO
+    // Do not accept a stationary hand covering the board as retrieval.
+    // It must LEAVE the image and the board must settle near the prior
+    // view (thin removed shafts can legitimately change a few pixels).
+    const handHasExited=changed < TAKEOUT_CHANGE_RATIO*0.75;
+    this.stableFrames=this.moved && handHasExited && quiet <= TAKEOUT_QUIET_RATIO
       ? this.stableFrames+1 : 0;
     this.previous=frame.slice();
     if(this.stableFrames >= 2) {
