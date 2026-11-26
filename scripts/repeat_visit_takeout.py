@@ -52,6 +52,11 @@ def install(root:Path):
       takeoutExclusive.current);
     meter.current.onTipsReceived(tips.length > 0);
     setMeterSnapshot(meter.current.snapshot());""")
+    # scorer's React callback must always see the CURRENT WebSocket
+    # assignment, not the value captured when the scorer page first mounted.
+    patch(scorer,
+      '  }, [onTips]);',
+      '  }, [onTips,scoring]);')
     patch(scorer,
       """      visitContext.current = {
         key:msg.key, active:msg.active, dartsRecorded:msg.dartsRecorded,
@@ -67,8 +72,7 @@ def install(root:Path):
     // previous positive observations for THIS visit. Never use evidence
     // from a prior visit, an unassigned camera, or takeout inference.
     fastBoardClear.current.arm(enabled, now,
-      visitTipEvidence.current.seenDuringThisVisit ||
-      Boolean(vision.frameRef.current?.result?.tips.length));""")
+      visitTipEvidence.current.seenDuringThisVisit);""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
        'dartline-v4.3-reliable-repeat-visits-2026-11-26\n',encoding='utf-8')
