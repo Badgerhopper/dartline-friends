@@ -115,6 +115,20 @@ describe('fast independent dart-removal verifier',()=>{
     expect(scan(gate,4400,'occupied')).toBe('send-occupied');
     expect(scan(gate,5300,'empty')).toBe('send-empty');
   });
+  it('recovers from an unresolved iPhone inference without a toggle',()=>{
+    const gate=ready();
+    gate.noteRetrievalMotion();
+    const old=gate.claim(2000,true)!;
+    expect(gate.claim(8300,true)).toBeNull();
+    const restarted=gate.claim(8601,true);
+    expect(restarted).not.toBeNull();
+    expect(restarted).not.toBe(old);
+    // Late completion of the old camera callback MUST NOT count as empty.
+    expect(gate.finish(old,8660,'empty')).toBeNull();
+    expect(gate.finish(restarted!,8690,'empty')).toBe('send-empty');
+    const second=gate.claim(9600,true)!;
+    expect(gate.finish(second,9670,'empty')).toBe('send-empty');
+  });
   it('a competing inference is retried and never consumes a confirmation',()=>{
     const gate=ready();
     const token=gate.claim(2000,true)!;
