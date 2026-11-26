@@ -60,7 +60,14 @@ describe('visual comparison prevents redundant scoring but preserves close real 
    expect(gate.shouldForward('',[tip(500000)],frame,1300)).toBe(true);
  });
  it('tolerates global brightness changes without creating fictitious novelty',()=>{
-   const a=board(95),b=board(122);shaft(a);shaft(b);
+   const a=board(95);shaft(a);
+   // True exposure compensation: every pixel, INCLUDING the dart, is
+   // brightened by the camera's automatic gain. No new object appeared.
+   const b={width:a.width,height:a.height,data:a.data.slice()};
+   for(let i=0;i<W*W;i++)for(let c=0;c<3;c++) {
+     const k=i*4+c;
+     b.data[k]=Math.min(255,a.data[k]+27);
+   }
    expect(boardImageChangedFraction(a,b)).toBeLessThan(.0007);
    const gate=new VisualScoringDeduper();
    expect(gate.shouldForward('visit',[tip(500000)],a,1000)).toBe(true);
