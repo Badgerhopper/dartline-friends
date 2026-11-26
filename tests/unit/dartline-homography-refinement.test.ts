@@ -50,7 +50,7 @@ describe('DartLine board geometry refinement', () => {
     const prior = oldFour(kps);
     const selected = kps.filter(p => [0,2,4,6].includes(p[3]));
     expect(refineHomographyWithInliers(
-      selected.map(p => [p[0],p[1]]),
+      selected.map(p => [p[0],p[1]] as Point2D),
       selected.map(p => REFERENCE_POINTS[p[3]]),
       prior, 5000
     )).toBe(prior);
