@@ -46,6 +46,30 @@ describe('on-phone temporal shaft detector, independent of neural network',()=>{
    expect(guess!.x*W).toBeGreaterThan(58);
    expect(guess!.x*W).toBeLessThan(93);
  });
+ it('recognizes a vivid shaft whose color changes but luminance stays nearly identical',()=>{
+   const a=blank(95),b=blank(95);dart(b,58,90);
+   for(let i=0;i<W*H;i++){
+     const k=4*i;
+     if(b.data[k]===238){b.data[k]=200;b.data[k+1]=50;b.data[k+2]=50;}
+   }
+   expect(detectTemporalDart(a,b)).not.toBeNull();
+ });
+ it('rejects large uniform cast shadows while still keeping colored dart shape',()=>{
+   const a=blank(100),b=blank(100);
+   for(let y=60;y<200;y++)for(let x=30;x<60;x++){
+     const k=4*(y*W+x);
+     b.data[k]=80;b.data[k+1]=80;b.data[k+2]=80;
+   }
+   expect(detectTemporalDart(a,b)).toBeNull();
+ });
+ it('detects the new shaft despite harmless per-pixel sensor noise',()=>{
+   const a=blank(100),b=blank(100);dart(b,58,90);
+   for(let i=0;i<W*H;i++){
+     const k=4*i,jitter=((i*37)%13)-6;
+     for(let c=0;c<3;c++)b.data[k+c]=Math.max(0,Math.min(255,b.data[k+c]+jitter));
+   }
+   expect(detectTemporalDart(a,b)).not.toBeNull();
+ });
  it('does not mistake a stationary empty board or uniform auto-exposure change for a dart',()=>{
    expect(detectTemporalDart(blank(),blank())).toBeNull();
    expect(detectTemporalDart(blank(90),blank(121))).toBeNull();
