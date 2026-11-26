@@ -36,8 +36,8 @@ def install(root:Path):
 }
 export interface CorrectDartMessage {""")
     patch(protocol,
-      "  | MatchStateMessage\\n  | ModeCatalogMessage",
-      "  | MatchStateMessage\\n  | VerifiedTakeoutStatusMessage\\n  | ModeCatalogMessage")
+      "  | MatchStateMessage\n  | ModeCatalogMessage",
+      "  | MatchStateMessage\n  | VerifiedTakeoutStatusMessage\n  | ModeCatalogMessage")
 
     session=root/"src/server/scoring/session.ts"
     patch(session,
@@ -95,8 +95,8 @@ export interface CorrectDartMessage {""")
           this.takeoutReason='Board confirmed empty, submitting visit';""")
     verified=root/"src/server/scoring/verifiedBoardClear.ts"
     patch(verified,
-      "  private confirmed = 0;\\n",
-      "  private confirmed = 0;\\n  get confirmations():number {return this.confirmed;}\\n")
+      "  private confirmed = 0;\n",
+      "  private confirmed = 0;\n  get confirmations():number {return this.confirmed;}\n")
 
     ws=root/"src/server/wsHandler.ts"
     patch(ws,
