@@ -35,3 +35,5 @@ This change is an engineering improvement, **not a verified claim of perfect iPh
 - A repeatable labeled dataset of true dart-tip positions and misses. Without it, precise recall and error rates are unmeasured.
 
 **Do not call this system 100% accurate or fully validated until a hardware acceptance test and labeled evaluation support those claims.** Keep the v3.7 backup branch for emergency rollback.
+
+The GitHub pull-request workflow must build the production Docker image and run all unit tests, including the revised physical-tip repeat semantics; a green static type check alone is not sufficient.
