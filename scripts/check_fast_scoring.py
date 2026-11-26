@@ -55,8 +55,10 @@ def verify(root: Path) -> None:
             and 'movementEpoch.current !== initialEpoch' in scorer
         ),
         'No AI recovery after three registered darts or during retrieval': (
-            'ctx.active && ctx.key.length>0 && ctx.dartsRecorded<3' in scorer
-            and '!takeoutMonitorArmed && scoring' in scorer
+            'shouldRecoverSilentHits({' in scorer
+            and 'takeoutMonitorArmed, hint:ctx' in scorer
+            and 'hint.active && hint.dartsRecorded < 3' in
+            (root/'src/client/lib/recoveryEligibility.ts').read_text(encoding='utf-8')
         ),
         'Match turn identity reaches the camera iframe': (
             "type:'dartline:visit-context'" in dock
