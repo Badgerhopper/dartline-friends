@@ -147,7 +147,11 @@ def verify(root: Path) -> None:
         'Physical empty-board return is scoped to the same current visit': (
             'visualBoardReturn.current.reset()' in scorer
             and 'visualBoardReturn.current.observe(image,ctx.dartsRecorded,now)' in scorer
-            and 'fastBoardClear.current.noteRetrievalMotion()' in scorer
+            and 'fastBoardClear.current.noteVisualClear(now)' in scorer
+            and 'FAST_CLEAR_PHOTO_PROOF_MS = 5000' in
+              (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
+            and 'this.photoClearUntil>now' in
+              (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
         ),
         'Release marker and visible version match': (
             marker == 'dartline-v5-hybrid-temporal-vision-2026-11-26'
