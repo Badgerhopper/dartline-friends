@@ -84,7 +84,6 @@ def install(root:Path):
       """        motionFps: data.motionFps, error:data.error,
         boardLocated: data.boardLocated,
         boardPoints: data.boardPoints,
-        scanCount: data.scanCount,
         inferenceMs: data.inferenceMs,
         recoveryProbes: data.recoveryProbes,
         recoveryConfirmed: data.recoveryConfirmed,
