@@ -2,8 +2,8 @@
 """Undo v3.2's forced iPhone resolution downgrade, not tip recognition.
 
 v3.2 lowered previously selected 1280-resolution board inference to 960
-pixels. That can prevent board landmarks from being found at all. This only
-recovers the prior resolution for phones carrying the exact downgrade marker.
+pixels. That can prevent board landmarks from being found at all. Affected phones regain their prior resolution automatically. On a new iPhone,
+the old GPU-guarded first-time detail choice is retained.
 The conservative v4 tip-rescue detector is not modified.
 """
 from pathlib import Path
