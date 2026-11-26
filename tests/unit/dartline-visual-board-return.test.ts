@@ -59,6 +59,20 @@ describe('physical empty-board return evidence does not depend on AI or hand mot
    for(const time of [2000,2400,2800,3400])
      expect(gate.observe(empty,3,time)).toBe(false);
  });
+ it('recognizes a colored dart with unchanged mean brightness and detects its removal',()=>{
+   const gate=new VisualBoardReturn(),empty=frame(),full=frame();
+   for(let y=40;y<180;y++)for(let x=100;x<104;x++){
+     const k=(y*SIZE+x)*4;
+     full.data[k]=200;full.data[k+1]=50;full.data[k+2]=50;
+   }
+   gate.observe(empty,0,1000);
+   gate.observe(empty,0,1300);
+   gate.observe(full,2,1700);
+   expect(gate.hasSeenPhysicalDarts).toBe(true);
+   gate.observe(full,3,1900);
+   gate.observe(empty,3,2300);
+   expect(gate.observe(empty,3,3100)).toBe(true);
+ });
  it('ignores global brightness variation while still requiring physical dart evidence',()=>{
    const gate=new VisualBoardReturn(),empty=frame(),lit=frame(125);
    gate.observe(empty,0,1000);
