@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { shouldRecoverBoardDetail } from '../../src/client/lib/classicModel';
 
 const recover = (
-  model='s_960', ua='Mozilla/5.0 (iPhone)', previous='done',
-  downgrade='done', recovery=null as string|null, gpu=true,
+  model='s_960', ua='Mozilla/5.0 (iPhone)', previous: string|null = 'done',
+  downgrade: string|null = 'done', recovery: string|null = null, gpu=true,
 ) => shouldRecoverBoardDetail(model, ua, previous, downgrade, recovery, gpu);
 
 describe('Restore board localization after the v3.2 resolution regression', () => {
