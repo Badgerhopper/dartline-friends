@@ -55,16 +55,27 @@ def verify(root: Path) -> None:
             and 'movementEpoch.current !== initialEpoch' in scorer
         ),
         'No AI recovery after three registered darts or during retrieval': (
-            'ctx.active && ctx.key.length>0 && ctx.dartsRecorded<3' in scorer
-            and '!takeoutMonitorArmed && scoring' in scorer
+            'shouldRecoverSilentHits({' in scorer
+            and 'takeoutMonitorArmed, hint:ctx' in scorer
+            and 'hint.active && hint.dartsRecorded < 3' in
+            (root/'src/client/lib/recoveryEligibility.ts').read_text(encoding='utf-8')
         ),
         'Match turn identity reaches the camera iframe': (
             "type:'dartline:visit-context'" in dock
             and 'const currentVisit = useRef(' in dock
         ),
+        'Missing optional HUD events cannot suppress recognition': (
+            'shouldRecoverSilentHits({' in scorer
+            and "import { shouldRecoverSilentHits }" in scorer
+            and "document.visibilityState === 'visible'" not in scorer[scorer.find('const idleTipRecovery'):scorer.find('const motionRescue')]
+        ),
+        'Retrieval still takes precedence, no phantom auto-submit': (
+            '!takeoutMonitorArmed' in scorer
+            and 'takeoutMonitorArmed, hint:ctx' in scorer
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v4-confirmed-silent-hit-recovery-2026-11-26'
-            and 'DARTLINE v4.0' in hud
+            marker == 'dartline-v4.1-active-scoring-recovery-2026-11-26'
+            and 'DARTLINE v4.1' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
