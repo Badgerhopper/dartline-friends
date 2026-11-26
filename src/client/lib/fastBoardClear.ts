@@ -15,6 +15,7 @@ export const FAST_CLEAR_FRAME_SPACING_MS = 550;
 export const FAST_CLEAR_SERVER_SPACING_MS = 800;
 export const FAST_CLEAR_RETRY_MS = 2700;
 export const FAST_CLEAR_MAX_PAIRS = 3;
+export const FAST_CLEAR_INFERENCE_STALL_MS = 6500;
 export const FAST_CLEAR_PHOTO_PROOF_MS = 5000;
 
 export type ClearFrame = 'occupied' | 'empty' | 'unlocated' | 'skipped';
@@ -24,6 +25,7 @@ export class FastBoardClear {
   private active = false;
   private generation = 0;
   private busyToken: number | null = null;
+  private busySince = 0;
   private armedAt = 0;
   private lastCompletedAt = 0;
   private lastEmptySentAt = 0;
@@ -38,6 +40,7 @@ export class FastBoardClear {
     this.active = false;
     this.generation++;
     this.busyToken = null;
+    this.busySince = 0;
     this.armedAt = 0;
     this.lastCompletedAt = 0;
     this.lastEmptySentAt = 0;
@@ -78,6 +81,15 @@ export class FastBoardClear {
   }
 
   claim(now: number, cameraReady: boolean): number | null {
+    // iOS can suspend an iframe while a model inference promise is pending.
+    // Never let one abandoned promise deadlock takeout until a user toggles
+    // the setting. Invalidate the old token before allowing another attempt.
+    if (this.busyToken !== null && Number.isFinite(now) &&
+        now - this.busySince > FAST_CLEAR_INFERENCE_STALL_MS) {
+      this.generation++;
+      this.busyToken=null;
+      this.busySince=0;
+    }
     if (!this.active || !cameraReady || !Number.isFinite(now) ||
         now - this.armedAt < FAST_CLEAR_ARM_GRACE_MS ||
         this.busyToken !== null || this.completedPairs >= FAST_CLEAR_MAX_PAIRS ||
@@ -95,12 +107,14 @@ export class FastBoardClear {
       this.consecutiveEmpty = 0;
     }
     this.busyToken = this.generation;
+    this.busySince = now;
     return this.generation;
   }
 
   finish(token: number, now: number, frame: ClearFrame): ClearAction {
     if (!this.active || this.busyToken !== token || token !== this.generation) return null;
     this.busyToken = null;
+    this.busySince = 0;
     if (frame === 'skipped') return null;
     if (!Number.isFinite(now)) return null;
     if (this.lastCompletedAt && now - this.lastCompletedAt < FAST_CLEAR_FRAME_SPACING_MS) return null;

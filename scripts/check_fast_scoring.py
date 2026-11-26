@@ -85,7 +85,8 @@ def verify(root: Path) -> None:
             'fastBoardClear.current.claim(' in scorer
             and 'runtime.inferCandidates()' in scorer
             and 'allowVerifiedEmpty.current=true' in scorer
-            and 'takeoutExclusive.current && !allowVerifiedEmpty.current' in scorer
+            and 'mayPublishScorerTips({' in scorer
+            and 'explicitlyVerified:allowVerifiedEmpty.current' in scorer
             and 'relaxed.tips.length' in scorer
             and 'takeoutScene.current.observe(gray,Date.now(),' in scorer
             and 'fastBoardClear.current.noteRetrievalMotion()' in scorer
@@ -155,9 +156,20 @@ def verify(root: Path) -> None:
             and 'this.photoClearUntil>now' in
               (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
         ),
+        'Only the verified takeout scanner may report tips while armed': (
+            'mayPublishScorerTips({' in scorer
+            and 'explicitlyVerified:allowVerifiedEmpty.current' in scorer
+            and 'try { latestOnTips.current(relaxed.tips,Math.round(frame.ms)); }' in scorer
+            and 'FAST_CLEAR_INFERENCE_STALL_MS = 6500' in
+              (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
+        ),
+        'The physical empty reference is frozen for the entire current visit': (
+            'if(!this.empty && this.prior && difference(this.prior,frame)' in
+              (root/'src/client/lib/visualBoardReturn.ts').read_text(encoding='utf-8')
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v5-hybrid-temporal-vision-2026-11-26'
-            and 'DARTLINE v5.0' in hud
+            marker == 'dartline-v5.1-verified-takeout-isolation-2026-11-26'
+            and 'DARTLINE v5.1' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]

@@ -56,7 +56,11 @@ export class VisualBoardReturn {
        frame.width!==256||frame.height!==256)return false;
     if(recordedDarts===0){
       // Capture only a stable board at the beginning of THIS visit.
-      if(this.prior && difference(this.prior,frame) <= 0.0007){
+      // Capture the first stable EMPTY appearance and then FREEZE it for
+      // this visit. The first dart can physically arrive before its score
+      // reaches the HUD; repeatedly overwriting the reference while
+      // recordedDarts===0 would silently make a dart-filled board "empty".
+      if(!this.empty && this.prior && difference(this.prior,frame) <= 0.0007){
         this.empty=frame;
       }
       this.prior=frame;
