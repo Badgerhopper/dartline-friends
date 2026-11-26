@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { scorerPath } from '../lib/phoneCamera';
-import { shouldRecoverCameraLink } from '../lib/cameraHealth';
 
 type ScorerReport = {
   cameraActive: boolean;
@@ -107,26 +106,10 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
     return () => window.removeEventListener('dartline:takeout-monitor',monitor);
   },[]);
   const [report, setReport] = useState<ScorerReport | null>(null);
-  const [frameGeneration, setFrameGeneration] = useState(0);
-  const lastHeartbeatAt = useRef(0);
-  const wasCameraActive = useRef(false);
-  const recoveryAttempts = useRef(0);
-  // Only revive a scorer which was already streaming and then went silent.
-  // Missing AI inference alone is never proof of a dead camera.
-  useEffect(() => {
-    if (!enabled || !inMatch || code === null) return;
-    const watchdog = window.setInterval(() => {
-      if (!shouldRecoverCameraLink(
-        lastHeartbeatAt.current, Date.now(), enabled, inMatch,
-        wasCameraActive.current, recoveryAttempts.current
-      )) return;
-      recoveryAttempts.current += 1;
-      lastHeartbeatAt.current = Date.now();
-      setReport(null);
-      setFrameGeneration(v => v + 1);
-    }, 3000);
-    return () => window.clearInterval(watchdog);
-  }, [enabled, inMatch, code]);
+  // The live scorer iframe must not be silently destroyed because a 1280px
+  // inference delays its heartbeat. iOS may defer iframe timers while the
+  // camera is busy. Re-mounting it interrupts motion recognition and can
+  // cause another multi-second model warm-up. The user can reopen setup.
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
@@ -142,8 +125,6 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
         || typeof data.motionFps !== 'number'
         || !(data.error === null || typeof data.error === 'string')
         || typeof data.status !== 'string') return;
-      lastHeartbeatAt.current = Date.now();
-      wasCameraActive.current = data.cameraActive;
       // Refresh the scorer's takeout state on camera-health replies as well;
       // this survives a scorer iframe reload without relying on event timing.
       frame.current?.contentWindow?.postMessage({
@@ -167,10 +148,6 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
   }, []);
   useEffect(() => {
     setReport(null);
-    lastHeartbeatAt.current = 0;
-    wasCameraActive.current = false;
-    recoveryAttempts.current = 0;
-    setFrameGeneration(0);
   }, [code]);
   if (!enabled) {
     if (!showLauncher) return null;
@@ -252,7 +229,7 @@ export function PhoneCameraDock({ enabled, connected, code, cameraActive, camera
           </div>
         : <iframe
             ref={frame}
-            key={`${code || 'resume'}-${frameGeneration}`}
+            key={code || 'resume'}
             title="DartLine scoring camera"
             src={scorerPath(code)}
             allow="camera; microphone; autoplay"
