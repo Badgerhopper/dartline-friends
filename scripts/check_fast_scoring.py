@@ -87,7 +87,7 @@ def verify(root: Path) -> None:
             and 'allowVerifiedEmpty.current=true' in scorer
             and 'takeoutExclusive.current && !allowVerifiedEmpty.current' in scorer
             and 'relaxed.tips.length' in scorer
-            and 'takeoutScene.current.observe(gray,Date.now())' in scorer
+            and 'takeoutScene.current.observe(gray,Date.now(),' in scorer
             and 'fastBoardClear.current.noteRetrievalMotion()' in scorer
             and 'this.sawRetrievalMotion' in
                  (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
@@ -121,9 +121,43 @@ def verify(root: Path) -> None:
             and "'dartline:verified-takeout-status'" in
               (root/'src/client/hooks/useMatch.ts').read_text(encoding='utf-8')
         ),
+        'Temporal vision actually compares before/after video, not just model confidence': (
+            'temporalDartTracker.current.observe(image,now)' in scorer
+            and 'readTemporalCamera(vision.refs.video.current' in scorer
+            and 'detectTemporalDart(' in
+             (root/'src/client/lib/temporalDartEvidence.ts').read_text(encoding='utf-8')
+        ),
+        'Occluded-tip guesses require human confirmation': (
+            "type:'dartline:temporal-guess'" in scorer
+            and "window.dispatchEvent(new CustomEvent('dartline:temporal-guess'" in dock
+            and 'scoreFromBoardCoords(temporalGuess.x,temporalGuess.y)' in hud
+            and 'Use estimate' in hud
+        ),
+        'Clear exterior-ring MISS detection has geometry and visual guards': (
+            "result.label==='miss' && radial>425000" in scorer
+            and 'guess.confidence>=0.80 && !guess.obscured' in scorer
+        ),
+        'Fast verified removal prewarms from second dart without early submit': (
+            'const prepareTakeout = autoTakeout' in hud
+            and 'darts.length>=2' in hud
+            and 'takeoutMonitorPrepared' in scorer
+            and 'takeoutExclusive.current))' in scorer
+            and 'visitContext.current.dartsRecorded===3' in scorer
+        ),
+        'Physical empty-board return is scoped to the same current visit': (
+            'visualBoardReturn.current.reset()' in scorer
+            and 'visualBoardReturn.current.observe(image,ctx.dartsRecorded,now)' in scorer
+            and 'fastBoardClear.current.noteVisualClear(now)' in scorer
+            and 'pendingRemovalWitness.current.replay(fastBoardClear.current,now)' in scorer
+            and 'pendingRemovalWitness.current.reset()' in scorer
+            and 'FAST_CLEAR_PHOTO_PROOF_MS = 5000' in
+              (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
+            and 'this.photoClearUntil>now' in
+              (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v4.4-takeout-ack-and-diagnostics-2026-11-26'
-            and 'DARTLINE v4.4' in hud
+            marker == 'dartline-v5-hybrid-temporal-vision-2026-11-26'
+            and 'DARTLINE v5.0' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]

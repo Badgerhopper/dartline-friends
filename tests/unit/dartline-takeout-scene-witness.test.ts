@@ -8,6 +8,26 @@ describe('independent retrieval scene witness',()=>{
     const monitor=new TakeoutSceneWitness();
     for(let i=0;i<20;i++)expect(monitor.observe(still(),1000+i*300)).toBe(false);
   });
+  it('prewarms from a two-dart board and recognizes immediate retrieval after the third',()=>{
+    const monitor=new TakeoutSceneWitness(), baseline=still();
+    // This reference was collected BEFORE the third recorded score.
+    expect(monitor.observe(baseline,1000,false)).toBe(false);
+    expect(monitor.observe(baseline,1260,false)).toBe(false);
+    expect(monitor.observe(baseline,1520,false)).toBe(false);
+    // No reset on the three-dart transition. Hand arrives immediately.
+    expect(monitor.observe(hand(baseline),1780,true)).toBe(false);
+    expect(monitor.observe(baseline,2040,true)).toBe(false);
+    expect(monitor.observe(baseline,2300,true)).toBe(false);
+    expect(monitor.observe(baseline,2560,true)).toBe(true);
+  });
+  it('never counts prewarm motion as takeout before the third dart',()=>{
+    const monitor=new TakeoutSceneWitness(), baseline=still();
+    monitor.observe(baseline,1000,false);
+    monitor.observe(hand(baseline),1300,false);
+    monitor.observe(baseline,1600,false);
+    expect(monitor.observe(baseline,1900,true)).toBe(false);
+    expect(monitor.observe(baseline,2200,true)).toBe(false);
+  });
   it('ignores a uniform iPhone exposure change',()=>{
     const monitor=new TakeoutSceneWitness();
     monitor.observe(still(100),1000);
