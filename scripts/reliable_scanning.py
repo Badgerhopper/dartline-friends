@@ -45,25 +45,12 @@ def install(root):
     replace(runtime,"async function inferFrame(session: number): Promise<BoardTip[]> {","async function inferFrame(session: number, publishEmpty: boolean): Promise<BoardTip[]> {")
     replace(runtime,
       "      const result = processPredictions(keypoints, boardThreshold, tipThreshold, lensCalibration);",
-      """      let result = recoverBoard(keypoints, boardThreshold, tipThreshold, lensCalibration);
-      // A silent bad WebGPU output can contain no valid board points but raise
-      // no exception. Retry *the same camera* with CPU inference and CPU
-      // preprocessing instead of asking the user to switch settings manually.
-      // Switch only once per runtime: repeated model recompilation is expensive.
-      if (!result && !forceCpuInference && session === cameraSession) {
-        forceCpuInference = true;
-        forceCpuPreprocessing = true;
-        modelNeedsReload = true;
-        onStatus({ stage: 'model', text: 'Using CPU recognition compatibility mode' });
-        runner = await ensureModel();
-        const cpu = await runner.run(video, inputSize(), { forceCpuPreprocessing: true });
-        if (session !== cameraSession) return [];
-        if (cpu.outputs && cpu.outputs.length >= 2) {
-          keypoints = postprocess(cpu.outputs[0], cpu.outputs[1], inputSize())[0];
-          result = recoverBoard(keypoints, boardThreshold, tipThreshold, lensCalibration);
-          preprocessMode = cpu.preprocessMode;
-        }
-      }""")
+      """      // Missing geometry is normal while a hand covers the dartboard or a
+      // dart vibrates. Do NOT permanently change GPU to CPU just because a
+      // frame could not locate the board. On an iPhone that turned one normal
+      // occlusion into ~20s takeout scans and stalled camera-heartbeat timers.
+      // Genuine runner failures still switch to CPU in the catch block above.
+      let result = recoverBoard(keypoints, boardThreshold, tipThreshold, lensCalibration);""")
     replace(runtime,"      onTips(tips);\n      return tips;","      if (tips.length > 0 || publishEmpty) onTips(tips);\n      return tips;")
     replace(runtime,"    motion,\n    infer,","    motion,\n    infer,\n    inferPositiveOnly: () => infer(false),")
     scorer=root/"src/client/pages/scorer/ScorerPage.tsx"
