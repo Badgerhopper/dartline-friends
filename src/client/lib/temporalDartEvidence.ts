@@ -15,7 +15,6 @@ const MIN_COMPONENT=16;
 const MAX_CHANGE_FRACTION=0.115;
 const MIN_LENGTH=17;
 const MAX_WIDTH=24;
-const THRESHOLD=24;
 export interface TemporalFrame {
   width:number;
   height:number;
@@ -27,28 +26,54 @@ export interface TemporalGuess {
   length:number; area:number; changeFraction:number;
   obscured:boolean;
 }
-function luma(frame:TemporalFrame):Float32Array {
-  const out=new Float32Array(frame.width*frame.height);
-  for(let i=0,j=0;i<out.length;i++,j+=4)
-    out[i]=frame.data[j]*0.299+frame.data[j+1]*0.587+frame.data[j+2]*0.114;
-  return out;
-}
 function median(values:number[]):number {
   if(!values.length)return 0;
   values.sort((a,b)=>a-b);
   return values[values.length>>1];
 }
+/** Distinguish new colored flights from similar-luminance board segments,
+ * compensate auto-exposure separately in RGB, and reject broad cast shadows.
+ */
 function delta(before:TemporalFrame,after:TemporalFrame) {
-  const a=luma(before),b=luma(after),n=a.length;
-  const samples:number[]=[];
-  for(let i=0;i<n;i+=31) samples.push(b[i]-a[i]);
-  const global=median(samples);
+  const a=before.data,b=after.data,n=before.width*before.height;
+  const rs:number[]=[],gs:number[]=[],bs:number[]=[];
+  for(let i=0;i<n;i+=29){
+    const k=i*4;rs.push(b[k]-a[k]);
+    gs.push(b[k+1]-a[k+1]);bs.push(b[k+2]-a[k+2]);
+  }
+  const ro=median(rs),go=median(gs),bo=median(bs);
+  const noise:number[]=[];
+  for(let i=0;i<n;i+=43){
+    const k=i*4;
+    noise.push(Math.max(
+      Math.abs(b[k]-a[k]-ro),
+      Math.abs(b[k+1]-a[k+1]-go),
+      Math.abs(b[k+2]-a[k+2]-bo)));
+  }
+  const threshold=Math.max(18,median(noise)*4+8);
   const bin=new Uint8Array(n);
   let changed=0;
   for(let i=0;i<n;i++){
-    // Remove whole-frame auto-exposure shifts but retain small structures.
-    const difference=Math.abs(b[i]-a[i]-global);
-    if(difference>THRESHOLD){bin[i]=1;changed++;}
+    const k=i*4;
+    const oldR=a[k],oldG=a[k+1],oldB=a[k+2];
+    const newR=b[k]-ro,newG=b[k+1]-go,newB=b[k+2]-bo;
+    const difference=Math.max(
+      Math.abs(newR-oldR),Math.abs(newG-oldG),Math.abs(newB-oldB));
+    if(difference<=threshold)continue;
+    // A broad common darkening with little hue shift is a cast shadow,
+    // not a newly arrived shaft. Keep changes that actually alter color.
+    const oldSum=oldR+oldG+oldB,newSum=newR+newG+newB;
+    if(oldSum>120 && newR<oldR && newG<oldG && newB<oldB){
+      const kShadow=newSum/oldSum;
+      if(kShadow>0.58 && kShadow<1){
+        const hueError=Math.max(
+          Math.abs(newR-oldR*kShadow),
+          Math.abs(newG-oldG*kShadow),
+          Math.abs(newB-oldB*kShadow));
+        if(hueError<14)continue;
+      }
+    }
+    bin[i]=1;changed++;
   }
   return {bin,fraction:changed/n};
 }
