@@ -118,7 +118,7 @@ import { MotionRescueGate } from '../../lib/motionRescueGate';""")
       vision.runtimeRef, vision.frameRef, view]);""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
-      'dartline-v3.5-duplicate-guard-motion-rescue-2026-11-26\n', encoding='utf-8'
+      'dartline-v3.6-fast-camera-verified-takeout-2026-11-26\n', encoding='utf-8'
     )
     print('DartLine v3.5: repeat jitter corrected; idle backup polling removed')
 
