@@ -49,16 +49,14 @@ def install(root:Path):
     patch(scorer,
        """    if (tips.length === 0 && takeoutExclusive.current && !allowVerifiedEmpty.current) {
       return;
-    }
-    meter.current.onTipsReceived(tips.length > 0);""",
+    }""",
        """    // Scoring and verification are exclusive. Once 3 darts are recorded,
     // ordinary motion-triggered AI tips must not reset the SERVER's first
     // empty-board vote. ONLY an explicitly verified report may leave.
     if (!mayPublishScorerTips({
       takeoutExclusive:takeoutExclusive.current,
       explicitlyVerified:allowVerifiedEmpty.current,
-    })) return;
-    meter.current.onTipsReceived(tips.length > 0);""")
+    })) return;""")
     patch(scorer,
        """        } else if (action==='send-occupied') {
           // Cancel an earlier empty vote with an actual observed tip.
