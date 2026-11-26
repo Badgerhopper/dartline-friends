@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RemovalMonitor, REMOVAL_MAX_COMPLETED_SCANS } from '../../src/client/lib/removalMonitor';
+import { VerifiedBoardClear } from '../../src/server/scoring/verifiedBoardClear';
 
 describe('DartLine opt-in removal monitor', () => {
   it('does not treat a still-pending third throw as removal', () => {
@@ -66,5 +67,29 @@ describe('DartLine opt-in removal monitor', () => {
     gate.complete(old!,4000,true);
     expect(gate.completed).toBe(0);
     expect(gate.claim(4200,true,true)).not.toBe(null);
+  });
+});
+
+describe('two actual empty-board frames advance the server only after retrieval', () => {
+  it('reaches verified submission, while busy or pre-retrieval scans do not', () => {
+    const gate = new RemovalMonitor();
+    const clear = new VerifiedBoardClear();
+    gate.update(true,'pending',500);
+    gate.update(true,'idle',1000); // third dart settled, not retrieval
+    expect(gate.claim(3000,true,true)).toBe(null);
+    gate.update(true,'pending',5000); // player retrieves the darts
+    gate.update(true,'idle',5400);
+    const skipped = gate.claim(6100,true,true);
+    expect(skipped).not.toBe(null);
+    gate.complete(skipped!,6110,false); // AI was busy: no result or server report
+    expect(clear.observe(false,3,6110)).toBe(false);
+    const first = gate.claim(6500,true,true);
+    expect(first).not.toBe(null);
+    gate.complete(first!,6550,true);
+    expect(clear.observe(true,3,6550)).toBe(false);
+    const second = gate.claim(7500,true,true);
+    expect(second).not.toBe(null);
+    gate.complete(second!,7570,true);
+    expect(clear.observe(true,3,7570)).toBe(true);
   });
 });
