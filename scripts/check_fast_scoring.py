@@ -95,9 +95,22 @@ def verify(root: Path) -> None:
         'Manual submit remains possible if auto-submit lags': (
             "autoTakeout ? 'Submit now'" in hud
         ),
+        'The camera carries observed tips within the active visit only': (
+            'visitTipEvidence.current.observePositive(scoring, tips.length' in scorer
+            and 'visitTipEvidence.current.updateVisit(msg.key,msg.active)' in scorer
+            and 'visitTipEvidence.current.seenDuringThisVisit' in scorer
+        ),
+        'Auto takeout can safely retry missed server confirmations': (
+            'FAST_CLEAR_MAX_PAIRS = 3' in
+             (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
+            and 'this.completedPairs++' in
+             (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
+            and 'this.sawRetrievalMotion' in
+             (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v4.2-faster-confirmed-scoring-2026-11-26'
-            and 'DARTLINE v4.2' in hud
+            marker == 'dartline-v4.3-reliable-repeat-visits-2026-11-26'
+            and 'DARTLINE v4.3' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]

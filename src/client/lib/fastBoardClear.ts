@@ -13,6 +13,8 @@ export const FAST_CLEAR_TICK_MS = 450;
 export const FAST_CLEAR_ARM_GRACE_MS = 700;
 export const FAST_CLEAR_FRAME_SPACING_MS = 550;
 export const FAST_CLEAR_SERVER_SPACING_MS = 800;
+export const FAST_CLEAR_RETRY_MS = 2700;
+export const FAST_CLEAR_MAX_PAIRS = 3;
 
 export type ClearFrame = 'occupied' | 'empty' | 'unlocated' | 'skipped';
 export type ClearAction = 'send-empty' | 'send-occupied' | null;
@@ -28,6 +30,7 @@ export class FastBoardClear {
   private sawRetrievalMotion = false;
   private consecutiveEmpty = 0;
   private emptySent = 0;
+  private completedPairs = 0;
 
   reset(): void {
     this.active = false;
@@ -40,6 +43,7 @@ export class FastBoardClear {
     this.sawRetrievalMotion = false;
     this.consecutiveEmpty = 0;
     this.emptySent = 0;
+    this.completedPairs = 0;
   }
 
   arm(enabled: boolean, now: number, seenOccupied = false): void {
@@ -62,9 +66,19 @@ export class FastBoardClear {
   claim(now: number, cameraReady: boolean): number | null {
     if (!this.active || !cameraReady || !Number.isFinite(now) ||
         now - this.armedAt < FAST_CLEAR_ARM_GRACE_MS ||
-        this.busyToken !== null || this.emptySent >= 2 ||
+        this.busyToken !== null || this.completedPairs >= FAST_CLEAR_MAX_PAIRS ||
         (this.lastCompletedAt && now - this.lastCompletedAt < FAST_CLEAR_FRAME_SPACING_MS)) {
       return null;
+    }
+    // A pair of server empty reports can be dropped during a turn transition
+    // or by a temporary camera-roster mismatch. The old code then stopped
+    // scanning permanently. Recheck after a bounded cooldown, but never
+    // invent an empty report or relax physical retrieval evidence.
+    if (this.emptySent >= 2) {
+      if (now - this.lastEmptySentAt < FAST_CLEAR_RETRY_MS) return null;
+      this.emptySent = 0;
+      this.lastEmptySentAt = 0;
+      this.consecutiveEmpty = 0;
     }
     this.busyToken = this.generation;
     return this.generation;
@@ -106,10 +120,13 @@ export class FastBoardClear {
 
     this.emptySent++;
     this.lastEmptySentAt = now;
+    if (this.emptySent === 2) this.completedPairs++;
     return 'send-empty';
   }
 
   get isArmed(): boolean { return this.active; }
   get hasSeenDarts(): boolean { return this.seenOccupied; }
   get emptyReportsSent(): number { return this.emptySent; }
+  get retriesUsed(): number { return Math.max(0,this.completedPairs-1); }
+  get hasRetrievalWitness(): boolean { return this.sawRetrievalMotion; }
 }
