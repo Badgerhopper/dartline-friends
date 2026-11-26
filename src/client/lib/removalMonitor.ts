@@ -18,6 +18,7 @@ export class RemovalMonitor {
   private movementAt = 0;
   private lastScanFinishedAt = 0;
   private inFlight = false;
+  private flightGeneration: number | null = null;
   private completedScans = 0;
   private generation = 0;
 
@@ -28,6 +29,7 @@ export class RemovalMonitor {
     this.movementAt = 0;
     this.lastScanFinishedAt = 0;
     this.inFlight = false;
+    this.flightGeneration = null;
     this.completedScans = 0;
     this.generation++;
   }
@@ -67,12 +69,15 @@ export class RemovalMonitor {
         (this.lastScanFinishedAt > 0 &&
          now - this.lastScanFinishedAt < REMOVAL_SCAN_SPACING_MS)) return null;
     this.inFlight = true;
+    this.flightGeneration = this.generation;
     return this.generation;
   }
 
   complete(generation: number, now: number, completedFrame: boolean): void {
-    // A disabled monitor or a fresh movement invalidates any older request.
+    // A completed request must never release a newer in-flight request.
+    if (this.flightGeneration !== generation) return;
     this.inFlight = false;
+    this.flightGeneration = null;
     if (!this.armed || this.generation !== generation) return;
     if (completedFrame) {
       this.completedScans++;
