@@ -1,6 +1,6 @@
-/** DartLine's motion detector is intentionally idle between physical throws.
- * A lack of model inferences does not imply a stalled camera. Use the media
- * scanner's actual frame analysis rate and the scorer iframe heartbeat. */
+/** Camera status is advisory. Idle motion inference is normal and a delayed
+ * iframe timer is not evidence that the video/camera link has stopped.
+ * Never tear down the scoring iframe from a heartbeat timeout. */
 export interface CameraHealth {
   cameraActive:boolean;
   scoring:boolean;
@@ -10,26 +10,20 @@ export interface CameraHealth {
   armedSince:number;
   error:string|null;
 }
+export const CAMERA_STATUS_DELAY_MS = 15000;
+
 export function cameraHealthLabel(report:CameraHealth|null,now:number):string {
   if (!report) return 'Connecting camera';
   if (!report.cameraActive) return 'Camera off';
   if (report.error) return 'AI error · open camera';
   if (!report.scoring) return 'Camera not assigned';
   if (!report.scanning) return 'Auto scan off';
-  if (now-report.lastHealthAt>9000) return 'Camera link paused';
+  // A slow 1280px inference on mobile can postpone the React heartbeat.
+  // Do not claim the camera link failed when only the status is stale.
+  if (Number.isFinite(now) && now - report.lastHealthAt > CAMERA_STATUS_DELAY_MS) {
+    return 'Camera update delayed';
+  }
   if (report.motionFps>=0.5) return 'Watching for dart';
   if (now-report.armedSince<12000) return 'Starting camera scan';
-  return 'Camera feed paused';
-}
-
-/** Recover a genuinely silent scorer document, not an idle AI model.
- * One automatic iframe restart per pairing prevents crash/reload loops. */
-export const CAMERA_LINK_RECOVERY_MS = 18000;
-export function shouldRecoverCameraLink(
-  lastHeartbeatAt:number, now:number, enabled:boolean,
-  inMatch:boolean, wasCameraActive:boolean, attempts:number,
-):boolean {
-  return enabled && inMatch && wasCameraActive && attempts === 0 &&
-    Number.isFinite(lastHeartbeatAt) && lastHeartbeatAt > 0 &&
-    Number.isFinite(now) && now - lastHeartbeatAt >= CAMERA_LINK_RECOVERY_MS;
+  return 'Camera feed waiting';
 }
