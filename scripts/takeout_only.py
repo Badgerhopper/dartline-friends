@@ -26,7 +26,7 @@ def install(root: Path) -> None:
         raise RuntimeError('Could not import isolated removal verifier')
     contents = contents.replace(
         importAnchor,
-        importAnchor + "\\nimport { RemovalMonitor } from '../../lib/removalMonitor';",
+        importAnchor + "\nimport { RemovalMonitor } from '../../lib/removalMonitor';",
         1
     )
     monitor = """  // Opt-in removal verification only. The normal recognition pipeline and
