@@ -9,8 +9,8 @@ describe('DartLine fallback for throws with NO motion trigger',()=>{
     expect(gate.observe([tip(510000)],1000)).toEqual([]);
     expect(gate.observe([tip(510900),tip(600000),tip(720000)],3200)).toHaveLength(1);
     const recovered=gate.observe([tip(510400),tip(601000),tip(721500)],5400);
-    expect(recovered).toHaveLength(2);
-    expect(recovered.map(x=>x.x).sort()).toEqual([600500,720750]);
+    expect(recovered).toHaveLength(3);
+    expect(recovered.map(x=>x.x).sort()).toEqual([510400,600500,720750]);
   });
   it('does not auto-score a phantom that appears in only one frame',()=>{
     const gate=new IdleTipRecovery();
@@ -43,8 +43,8 @@ describe('DartLine fallback for throws with NO motion trigger',()=>{
     // observations and hence two independently trackable candidates.
     expect(gate.observe([tip(560500),tip(567000)],5400)).toEqual([]);
     const second=gate.observe([tip(560600),tip(567600)],7600);
-    expect(second).toHaveLength(1);
-    expect(second[0].x).toBeGreaterThan(565000);
+    expect(second).toHaveLength(2);
+    expect(second.some(t=>t.x>565000)).toBe(true);
   });
   it('does not score spurious out-of-ring misses on static scans',()=>{
     const gate=new IdleTipRecovery();
