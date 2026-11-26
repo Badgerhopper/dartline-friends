@@ -160,7 +160,9 @@ export class TemporalDartTracker {
     if(!this.baseline){this.baseline=frame;this.prior=frame;return null;}
     if(!this.prior){this.prior=frame;return null;}
     const motion=fractionChanged(this.prior,frame);
-    this.quiet=motion<0.012?this.quiet+1:0;
+    // Even a narrow new shaft changes much less than 1% of 256px pixels.
+    // 1.2% incorrectly marked the actual arrival as a quiet frame.
+    this.quiet=motion<0.00045?this.quiet+1:0;
     this.prior=frame;
     if(this.quiet<2||now-this.lastDecision<500)return null;
     const diff=fractionChanged(this.baseline,frame);
