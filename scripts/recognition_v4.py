@@ -49,6 +49,11 @@ def install(root:Path):
     replace_one(runtime,
         '      if (tips.length > 0 || publishEmpty) onTips(tips);',
         '      if (publishTips && (tips.length > 0 || publishEmpty)) onTips(tips);')
+    # Candidate-only probes must not prime the legacy weak-tip state and
+    # accidentally publish an unconfirmed candidate on the next motion scan.
+    replace_one(runtime,
+        '      if (result) {\n        const relaxed = recoverBoard(keypoints, boardThreshold,',
+        '      if (result && publishTips) {\n        const relaxed = recoverBoard(keypoints, boardThreshold,')
     replace_one(runtime,
         '    inferPositiveOnly: () => infer(false),',
         '''    inferPositiveOnly: () => infer(false),
