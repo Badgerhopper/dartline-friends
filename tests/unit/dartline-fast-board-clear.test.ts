@@ -65,6 +65,34 @@ describe('fast independent dart-removal verifier',()=>{
     expect(scan(gate,5400,'empty')).toBeNull();
     expect(gate.retriesUsed).toBe(0);
   });
+  it('a confirmed empty-board photograph overrules brief phantom model tips',()=>{
+    const gate=ready();
+    gate.noteVisualClear(1550); // positive occupied evidence was already seen
+    expect(gate.hasStrongPhotoClear).toBe(true);
+    // The model falsely predicts one point on the empty board, but these
+    // are independent board-located AI frames after physical clear proof.
+    expect(scan(gate,2000,'occupied')).toBe('send-empty');
+    expect(scan(gate,2900,'occupied')).toBe('send-empty');
+    expect(gate.emptyReportsSent).toBe(2);
+  });
+  it('never uses an expired or unqualified photo as an empty-board override',()=>{
+    const unqualified=new FastBoardClear();
+    unqualified.arm(true,1000,false);
+    unqualified.noteVisualClear(1500);
+    expect(unqualified.hasStrongPhotoClear).toBe(false);
+    const gate=ready();
+    gate.noteVisualClear(1550);
+    expect(scan(gate,7600,'occupied')).toBeNull();
+    expect(gate.emptyReportsSent).toBe(0);
+  });
+  it('photo proof never survives an actual visit reset',()=>{
+    const gate=ready();
+    gate.noteVisualClear(1500);
+    gate.arm(false,1650);
+    gate.arm(true,2000,true);
+    expect(gate.hasStrongPhotoClear).toBe(false);
+    expect(scan(gate,3000,'occupied')).toBeNull();
+  });
   it('occupied evidence cancels a suspected takeout and resets the server',()=>{
     const gate=ready();
     gate.noteRetrievalMotion();
