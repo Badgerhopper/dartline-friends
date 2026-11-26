@@ -5,6 +5,8 @@
  * the live camera followed by stable frames.
  *
  * Frames are 48x48 grayscale and stay ON DEVICE. No images are uploaded.
+ * Prewarm the reference from the second dart onward so a quick hand reaching
+ * in immediately after the third score cannot outrun the first baseline.
  * A global exposure change is subtracted before the pixel comparison.
  */
 export const TAKEOUT_SAMPLE_PIXELS = 48;
@@ -45,8 +47,8 @@ export class TakeoutSceneWitness {
     this.fired=false;
   }
 
-  observe(frame:Uint8Array, now:number):boolean {
-    if (this.fired) return false;
+  observe(frame:Uint8Array, now:number, allowCompletion=true):boolean {
+    if (this.fired && allowCompletion) return false;
     if (!Number.isFinite(now) || now<=0 ||
         frame.length !== TAKEOUT_SAMPLE_PIXELS*TAKEOUT_SAMPLE_PIXELS) return false;
     if (!this.first || !this.previous) {
@@ -58,17 +60,18 @@ export class TakeoutSceneWitness {
     // Do not treat a single camera exposure adjustment as hand movement.
     const changed=difference(this.first,frame,CHANGE_LUMA);
     const quiet=difference(this.previous,frame,QUIET_LUMA);
-    if (changed>=TAKEOUT_CHANGE_RATIO && now-this.baselineAt >= 200) {
+    if (allowCompletion && changed>=TAKEOUT_CHANGE_RATIO && now-this.baselineAt >= 200) {
       this.moved=true;
     }
     // Do not accept a stationary hand covering the board as retrieval.
     // It must LEAVE the image and the board must settle near the prior
     // view (thin removed shafts can legitimately change a few pixels).
     const handHasExited=changed < TAKEOUT_CHANGE_RATIO*0.75;
-    this.stableFrames=this.moved && handHasExited && quiet <= TAKEOUT_QUIET_RATIO
+    if(!allowCompletion) {this.moved=false;this.stableFrames=0;}
+    this.stableFrames=this.moved && allowCompletion && handHasExited && quiet <= TAKEOUT_QUIET_RATIO
       ? this.stableFrames+1 : 0;
     this.previous=frame.slice();
-    if(this.stableFrames >= 2) {
+    if(allowCompletion && this.stableFrames >= 2) {
       this.fired=true;
       return true;
     }
