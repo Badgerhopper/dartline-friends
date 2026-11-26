@@ -210,7 +210,7 @@ import { RELAXED_TIP_THRESHOLD } from '../../lib/tipRescue';""")
     replace_one(dock,before,after)
 
     (root/'src/client/public/dartline-build.txt').write_text(
-        'dartline-v4-confirmed-silent-hit-recovery-2026-11-26\\n',
+        'dartline-v4-confirmed-silent-hit-recovery-2026-11-26\n',
         encoding='utf-8'
     )
     print('DartLine v4: motion-independent, confirmed detection enabled')
