@@ -85,6 +85,10 @@ def verify(root: Path) -> None:
             and 'allowVerifiedEmpty.current=true' in scorer
             and 'takeoutExclusive.current && !allowVerifiedEmpty.current' in scorer
             and 'relaxed.tips.length' in scorer
+            and 'takeoutScene.current.observe(gray,Date.now())' in scorer
+            and 'fastBoardClear.current.noteRetrievalMotion()' in scorer
+            and 'this.sawRetrievalMotion' in
+                 (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
         ),
         'Manual submit remains possible if auto-submit lags': (
             "autoTakeout ? 'Submit now'" in hud
