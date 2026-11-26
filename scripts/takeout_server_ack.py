@@ -19,6 +19,10 @@ def patch(p:Path, before:str, after:str):
     p.write_text(text.replace(before,after,1),encoding="utf-8")
 
 def install(root:Path):
+    test=root/"tests/unit/dartline-takeout-server-ack.test.ts"
+    test.parent.mkdir(parents=True,exist_ok=True)
+    import shutil
+    shutil.copyfile(Path(__file__).resolve().parents[1]/"tests/unit/dartline-takeout-server-ack.test.ts",test)
     protocol=root/"src/shared/protocol.ts"
     patch(protocol,
       "export interface CorrectDartMessage {",
