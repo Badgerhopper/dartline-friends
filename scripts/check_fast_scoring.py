@@ -167,9 +167,32 @@ def verify(root: Path) -> None:
             'if(!this.empty && this.prior && difference(this.prior,frame)' in
               (root/'src/client/lib/visualBoardReturn.ts').read_text(encoding='utf-8')
         ),
+        'The same camera image and matching tip set is not sent again': (
+            'visualScoringDeduper.current.shouldForward(' in scorer
+            and 'scoringVisitKey.current,tips,shot,Date.now()' in scorer
+            and 'visualScoringDeduper.current.reset()' in scorer
+            and 'function boardImageChangedFraction' in
+              (root/'src/client/lib/rapidVisualScoring.ts').read_text(encoding='utf-8')
+            and 'sameTipSet(tips,this.lastTips)' in
+              (root/'src/client/lib/rapidVisualScoring.ts').read_text(encoding='utf-8')
+        ),
+        'New visible dart gives priority to independent model confirmations': (
+            'rapidVisualRecovery.current.newPhysicalDart(now)' in scorer
+            and 'rapidVisualRecovery.current.shouldProbe(' in scorer
+            and 'rapidVisualRecovery.current.finished(Date.now(),' in scorer
+            and '},RAPID_RECOVERY_POLL_MS)' in scorer
+            and 'RAPID_RECOVERY_FAST_GAP_MS=550' in
+              (root/'src/client/lib/rapidVisualScoring.ts').read_text(encoding='utf-8')
+        ),
+        'Primary scored dart recognition and verified takeout are unchanged': (
+            'mayPublishScorerTips({' in scorer
+            and 'fastBoardClear.current.claim(' in scorer
+            and 'runtime.inferCandidates()' in scorer
+            and "takeoutExclusive.current && ctx.dartsRecorded===3" in scorer
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v5.1-verified-takeout-isolation-2026-11-26'
-            and 'DARTLINE v5.1' in hud
+            marker == 'dartline-v5.2-visual-dedupe-fast-recovery-2026-11-26'
+            and 'DARTLINE v5.2' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
