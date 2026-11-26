@@ -121,7 +121,7 @@ def install(root:Path):
     takeoutScene.current.reset();
     if (!takeoutMonitorArmed || !scoring || !vision.cameraActive) return;
     const timer=window.setInterval(() => {
-      const video=vision.videoElement();
+      const video=vision.refs.video.current;
       if (!takeoutCanvas.current) takeoutCanvas.current=document.createElement('canvas');
       const gray=readTakeoutScene(video,takeoutCanvas.current);
       if (gray && takeoutScene.current.observe(gray,Date.now())) {
@@ -129,7 +129,7 @@ def install(root:Path):
       }
     },250);
     return () => window.clearInterval(timer);
-  }, [takeoutMonitorArmed,scoring,vision.cameraActive,vision.videoElement]);
+  }, [takeoutMonitorArmed,scoring,vision.cameraActive,vision.refs.video]);
 
   // A real recorded visit with darts visible becomes the baseline for""")
 
