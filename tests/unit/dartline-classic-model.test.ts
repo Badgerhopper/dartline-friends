@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { shouldRestoreClassicModel } from '../../src/client/lib/classicModel';
+import { shouldRecoverBoardDetail } from '../../src/client/lib/classicModel';
 
-describe('DartLine v4 model rollback', () => {
-  it('restores a previously auto-upgraded iPhone to 960 detail', () => {
-    expect(shouldRestoreClassicModel('s_1280', 'Mozilla/5.0 (iPhone)', 'done', null)).toBe(true);
+const recover = (
+  model='s_960', ua='Mozilla/5.0 (iPhone)', previous='done',
+  downgrade='done', recovery=null as string|null, gpu=true,
+) => shouldRecoverBoardDetail(model, ua, previous, downgrade, recovery, gpu);
+
+describe('Restore iPhone board localization after the v3.2 regression', () => {
+  it('undoes the exact v3.2 high-detail downgrade on an affected iPhone', () => {
+    expect(recover()).toBe(true);
   });
-  it('does not repeat the rollback after a user picks a different model', () => {
-    expect(shouldRestoreClassicModel('s_1280', 'iPhone', 'done', 'done')).toBe(false);
-  });
-  it('respects non-iPhone devices and devices never exposed to auto-upgrade', () => {
-    expect(shouldRestoreClassicModel('s_1280', 'Android', 'done', null)).toBe(false);
-    expect(shouldRestoreClassicModel('s_1280', 'iPhone', null, null)).toBe(false);
-    expect(shouldRestoreClassicModel('s_960', 'iPhone', 'done', null)).toBe(false);
+  it('never alters the model for other phones, manually chosen models, or older setups', () => {
+    expect(recover('s_1280')).toBe(false);
+    expect(recover('s_960', 'Android')).toBe(false);
+    expect(recover('s_960', 'iPhone', null)).toBe(false);
+    expect(recover('s_960', 'iPhone', 'done', null)).toBe(false);
+    expect(recover('s_960', 'iPhone', 'done', 'done', 'done')).toBe(false);
+    expect(recover('s_960', 'iPhone', 'done', 'done', null, false)).toBe(false);
   });
 });
