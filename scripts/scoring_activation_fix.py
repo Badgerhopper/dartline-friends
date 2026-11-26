@@ -104,7 +104,7 @@ def install(root:Path):
 }""")
     patch(camera,
       """  if (!report.scanning) return 'Auto scan off';""",
-      """  if (!report.scanning && !report.recoveryProbes) return 'Motion scan off';
+      """  if (!report.scanning && !report.recoveryProbes) return 'Auto scan off';
   if (report.recoveryProbes && report.boardLocated === false)
     return 'Board not found in latest AI scan';
   if (report.scanCount === 0 && now - report.armedSince > 12000)
