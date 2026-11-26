@@ -1,13 +1,20 @@
-/** One-time rollback of the iPhone high-detail default introduced by v5.
- * A previous device preference may persist across deployments on Render. */
-export function shouldRestoreClassicModel(
+/**
+ * Undo only the forced 1280 -> 960 downgrade introduced by DartLine v3.2.
+ * Keep the conservative v4 tip detector; board localization needs the
+ * higher-resolution model previously chosen on this same iPhone.
+ */
+export function shouldRecoverBoardDetail(
   model: string,
   userAgent: string,
-  priorAutoChoice: string | null,
-  rollbackComplete: string | null,
+  previouslyAutoSelectedDetail: string | null,
+  downgradeWasApplied: string | null,
+  recoveryWasApplied: string | null,
+  webGpuAvailable: boolean,
 ): boolean {
-  return rollbackComplete !== 'done' &&
-    priorAutoChoice === 'done' &&
-    model === 's_1280' &&
-    /iPhone/i.test(userAgent);
+  return model === 's_960'
+    && /iPhone/i.test(userAgent)
+    && webGpuAvailable
+    && previouslyAutoSelectedDetail === 'done'
+    && downgradeWasApplied === 'done'
+    && recoveryWasApplied !== 'done';
 }
