@@ -29,8 +29,8 @@ describe('DartLine v4 full camera-to-server scoring contract',()=>{
     const h=createScoringHarness();
     expect(h.candidateFrame([dart(520000)],1000)).toHaveLength(0);
     expect(h.candidateFrame([dart(520300),dart(640000)],3200)).toHaveLength(1);
-    expect(h.candidateFrame([dart(520500),dart(640200),dart(700000)],5400)).toHaveLength(1);
-    expect(h.candidateFrame([dart(520600),dart(640500),dart(700400)],7600)).toHaveLength(1);
+    expect(h.candidateFrame([dart(520500),dart(640200),dart(700000)],5400)).toHaveLength(2);
+    expect(h.candidateFrame([dart(520600),dart(640500),dart(700400)],7600)).toHaveLength(3);
     expect(h.scores).toHaveLength(3);
     expect(h.tracker.count).toBe(3);
   });
