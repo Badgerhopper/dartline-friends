@@ -55,6 +55,31 @@ describe('physical empty-board return evidence does not depend on AI or hand mot
    verifier.reset();
    expect(verifier.matchesCurrentEmpty(clear,3)).toBe(false);
  });
+ it('tolerates sparse isolated sensor noise on a genuinely cleared board',()=>{
+   const gate=new VisualBoardReturn(),empty=frame(),full=addDart(empty);
+   const noisy=frame();
+   for(let y=8;y<248;y+=20)for(let x=8;x<248;x+=20){
+     const k=(y*SIZE+x)*4;
+     noisy.data[k]=170;noisy.data[k+1]=170;noisy.data[k+2]=170;
+   }
+   gate.observe(empty,0,1000);gate.observe(empty,0,1300);
+   gate.observe(full,2,1600);gate.observe(full,3,1900);
+   gate.observe(noisy,3,2400);
+   expect(gate.observe(noisy,3,3150)).toBe(true);
+   expect(gate.matchesCurrentEmpty(noisy,3)).toBe(true);
+ });
+ it('rejects a thin retained dart even when it changes fewer than 43 pixels',()=>{
+   const gate=new VisualBoardReturn(),empty=frame(),full=addDart(empty),thin=frame();
+   for(let y=70;y<90;y++){
+     const k=(y*SIZE+105)*4;
+     thin.data[k]=220;thin.data[k+1]=210;thin.data[k+2]=200;
+   }
+   gate.observe(empty,0,1000);gate.observe(empty,0,1300);
+   gate.observe(full,2,1600);gate.observe(full,3,1900);
+   gate.observe(thin,3,2400);
+   expect(gate.observe(thin,3,3150)).toBe(false);
+   expect(gate.matchesCurrentEmpty(thin,3)).toBe(false);
+ });
  it('will not submit merely because the model predicted an empty board',()=>{
    const gate=new VisualBoardReturn(),empty=frame();
    gate.observe(empty,0,1000);gate.observe(empty,0,1300);
