@@ -33,7 +33,7 @@ A [Render Blueprint](render.yaml) creates **one Free Docker web service** in Vir
 4. Confirm the deployment health check passes, the app homepage loads, and live games can connect using its `onrender.com` domain.
 5. **Only after verifying Render works**, shut down the old DartLine Railway service. The repository stays in GitHub.
 
-The Blueprint intentionally disables automatic redeploys to avoid consuming free build minutes on every commit. Deploy new code manually when you intentionally update it.
+The current Blueprint **requests automatic deploys on commits to `main`** (`autoDeployTrigger: commit`). An existing Render service can have different dashboard settings, and GitHub passing its build does **not** mean the public service deployed. After each merge, `.github/workflows/verify-dartline-production.yml` independently checks the real Render `/dartline-build.txt` version and fails loudly if it stays old. If that check fails, inspect Render > dartline-friends > Deploys and Settings > Build & Deploy > Auto-Deploy, or manually deploy the latest commit. No file or test can force a disconnected Render service to use a new Docker image.
 
 Free Render services sleep after 15 idle minutes, and a wake-up can take about a minute. They can restart unexpectedly; DartLine stores active matches only in server memory, so a restart ends them. Free service limits are not a warranty against bills when a payment method is attached: Render may charge for excess bandwidth and build pipeline minutes. Do not attach a payment method if you want hard no-charge suspension on limits. See [Render free-tier rules](https://render.com/docs/free).
 
