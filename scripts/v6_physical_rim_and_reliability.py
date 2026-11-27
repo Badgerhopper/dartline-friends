@@ -48,10 +48,22 @@ def install(root:Path):
     patch(scorer,
       "import { TemporalDartTracker, readTemporalCamera, TEMPORAL_POLL_MS, type TemporalFrame } from '../../lib/temporalDartEvidence';",
       """import { TemporalDartTracker, readTemporalCamera, TEMPORAL_POLL_MS, type TemporalFrame } from '../../lib/temporalDartEvidence';
-import { boardImpactRegion, strongNewPhysicalMiss } from '../../lib/physicalBoardImpact';""")
+import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch } from '../../lib/physicalBoardImpact';""")
+    patch(scorer,
+      "  const onTipsWithMeter = useCallback((tips: BoardTip[], ms: number) => {",
+      """  const onTipsWithMeter = useCallback((tips: BoardTip[], ms: number) => {
+    // Reject keypoints mapped outside the ACTUAL circular dartboard face.
+    // An off-board false positive must NEVER become a fake empty takeout.
+    const onBoard=physicalBoardTipBatch(tips);
+    if(onBoard===null)return;
+    tips=onBoard;""")
     patch(scorer,
       """      const guess=temporalDartTracker.current.observe(image,now);
       if(!guess)return;
+      // This is a physical before/after dart-shaped change, not a model
+      // hallucination. Request the soonest SAFE serialized model inference,
+      // then its independently spaced confirmation, without scoring here.
+      rapidVisualRecovery.current.newPhysicalDart(now);
       const runtime=vision.runtimeRef.current;
       const frame=vision.frameRef.current;
       if(!runtime?.camera.active || !frame?.result)return;
@@ -79,6 +91,7 @@ import { boardImpactRegion, strongNewPhysicalMiss } from '../../lib/physicalBoar
           return point!==null && boardImpactRegion(point[0],point[1])!=='outside';
         });
       if(!guess || !runtime?.camera.active || !frame?.result)return;
+      rapidVisualRecovery.current.newPhysicalDart(now);
       const board=project(guess.x,guess.y);
       if(!board || !board.every(Number.isFinite))return;""")
     patch(scorer,
