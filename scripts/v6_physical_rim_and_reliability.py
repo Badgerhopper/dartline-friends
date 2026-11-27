@@ -278,6 +278,57 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       "<small>DART {i+1}{i<darts.length ? ' ✎' : ''}</small>",
       "<small>DART {i+1}{darts[i]?.detection?.estimated ? ' · EST.' : i<darts.length ? ' ✎' : ''}</small>")
 
+    # Expose a compact local-only diagnostic history. No camera images or
+    # device identity are sent to a telemetry service. If hardware differs
+    # from the replay, the scoreboard can show exactly which gate is failing.
+    patch(scorer,
+      '  const lastLocatedAt = useRef(0);',
+      '  const lastLocatedAt = useRef(0);\n  const cameraTrace=useRef<string[]>([]);\n  const trace=(message:string)=>{\n    const last=cameraTrace.current.at(-1);\n    if(last===message)return;\n    cameraTrace.current=[...cameraTrace.current.slice(-19),message];\n  };')
+    patch(scorer,
+      '      inferenceMs: Math.round(vision.frame?.ms ?? 0),',
+      '      inferenceMs: Math.round(vision.frame?.ms ?? 0),\n      cameraTrace: cameraTrace.current,')
+    patch(scorer,
+      '        photoTakeoutPriority.current=clear &&',
+      """        if(ctx.dartsRecorded===3){
+          trace('Takeout: '+(!takeoutExclusive.current?'not armed':
+            !visualBoardReturn.current.hasEmptyReference?'no empty reference':
+            !visualBoardReturn.current.hasSeenPhysicalDarts?'no occupied reference':
+            decodedFrameId===null?'video frame unavailable':
+            !allowed?'camera pose unavailable':
+            !clear?'waiting for clear ('+(visualBoardReturn.current.changedFraction*100).toFixed(2)+'% changed)':
+            'clear; votes '+photoTakeoutConfirm.current.reportsSent));
+        }
+        photoTakeoutPriority.current=clear &&""")
+    patch(scorer,
+      '      const physical=scorePhysicalDart(guess,project);',
+      """      const physical=scorePhysicalDart(guess,project);
+      trace('Dart: '+(physical?.label??'weak shape')+' quality '+guess.confidence.toFixed(2)
+        +' '+(guess.obscured?'hidden':'visible')+' count '+guess.recordedBefore+'/'+ctx.dartsRecorded);""")
+    patch(scorer,
+      '        latestOnTips.current([{x:physical.x,y:physical.y,confidence:guess.confidence,',
+      """        trace('Physical score sent: '+physical.label+' slot '+(ctx.dartsRecorded+1));
+        latestOnTips.current([{x:physical.x,y:physical.y,confidence:guess.confidence,""")
+    dock=root/'src/client/components/PhoneCameraDock.tsx'
+    patch(dock,
+      '        recoveryConfirmed: data.recoveryConfirmed,\n      }}));',
+      """        recoveryConfirmed: data.recoveryConfirmed,
+        cameraTrace: Array.isArray(data.cameraTrace)?data.cameraTrace.filter(
+          (line:unknown)=>typeof line==='string').slice(-20):[],
+      }}));""")
+    health=root/'src/client/lib/cameraHealth.ts'
+    patch(health,
+      '  inferenceMs?:number;',
+      '  inferenceMs?:number;\n  cameraTrace?:string[];')
+    patch(hud,
+      '      <div className="dartline-hud-slot-hint">',
+      """      {cameraReport?.cameraTrace?.length ? <details className="dartline-hud-slot-hint">
+        <summary>Camera diagnostics · {cameraReport.inferenceMs??0} ms AI</summary>
+        <pre style={{whiteSpace:'pre-wrap',textAlign:'left'}}>{cameraReport.cameraTrace.join('\\n')}</pre>
+        <button type="button" onClick={()=>void navigator.clipboard?.writeText(
+          cameraReport.cameraTrace?.join('\\n')??'').catch(()=>{})}>Copy diagnostics</button>
+      </details> : null}
+      <div className="dartline-hud-slot-hint">""")
+
     (root/'src/client/public/dartline-build.txt').write_text(
       'dartline-v6.3-physical-event-recovery-RC\n',
       encoding='utf-8')
