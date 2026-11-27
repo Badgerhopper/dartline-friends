@@ -87,6 +87,17 @@ describe('on-phone temporal shaft detector, independent of neural network',()=>{
    for(const now of [1950,2190,2430,2670])
       expect(tracker.observe(b,now)).toBeNull();
  });
+ it('recovers an exposed 22-pixel shaft previously discarded as insignificant',()=>{
+   const tracker=new TemporalDartTracker(),a=blank(),b=blank();
+   for(let x=80;x<102;x++)dot(b,x,105,0);
+   expect(tracker.observe(a,1000)).toBeNull();
+   expect(tracker.observe(b,1240)).toBeNull();
+   expect(tracker.observe(b,1480)).toBeNull();
+   const recovered=tracker.observe(b,1720);
+   expect(recovered).not.toBeNull();
+   expect(recovered!.obscured).toBe(true);
+   expect(tracker.observe(b,1960)).toBeNull();
+ });
  it('tracks a second dart partially overlapping an earlier shaft',()=>{
    const tracker=new TemporalDartTracker();const a=blank(),b=blank();
    dart(b,62,90);tracker.observe(a,1000);tracker.observe(b,1240);
