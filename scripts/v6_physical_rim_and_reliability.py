@@ -110,6 +110,27 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch } from 
       // darts; the independent low confidence guess remains manual.
       if(strongNewPhysicalMiss(x,y,guess)){""")
 
+    # The upstream expectation used to CLAMP a tip projected far into
+    # surrounding wall pixels into a plausible board coordinate. That is
+    # incompatible with physically bounded miss detection. Keep the case,
+    # but assert the correct fail-closed behavior instead.
+    geom=root/'tests/unit/vision-geometry.test.ts'
+    patch(geom,
+      """  it('clamps a tip projected outside the board square', () => {
+    const wayOff = tipAt([BOARD_CENTER, BOARD_CENTER]);
+    wayOff[0] = -4; // far off frame, projects well outside the board
+    const result = run([wayOff]);
+    expect(result!.tips[0].x).toBeGreaterThanOrEqual(0);
+    expect(result!.tips[0].y).toBeGreaterThanOrEqual(0);
+  });""",
+      """  it('rejects a tip from outside the physical board instead of clamping wall pixels', () => {
+    const wayOff = tipAt([BOARD_CENTER, BOARD_CENTER]);
+    wayOff[0] = -4; // off-frame; may be a wall-mounted stored dart
+    const result = run([wayOff]);
+    expect(result).not.toBeNull();
+    expect(result!.tips).toEqual([]);
+  });""")
+
     (root/'src/client/public/dartline-build.txt').write_text(
       'dartline-v6-physical-board-miss-recovery-DRAFT-DO-NOT-DEPLOY\n',
       encoding='utf-8')
