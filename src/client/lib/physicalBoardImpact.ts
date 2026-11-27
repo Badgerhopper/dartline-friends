@@ -117,3 +117,39 @@ export function scorePhysicalDart(guess:TemporalGuess,
   const x=Math.round(p[0]),y=Math.round(p[1]);
   return {x,y,label:scoreFromBoardCoords(x,y).label};
 }
+
+/** Outer-ring model predictions are especially vulnerable to a flight
+ * being mistaken for a tip. Never score a new zero from one inference.
+ * Keep valid interior hits in the batch; do not convert rejected tips to
+ * an empty-board vote. Distinct completed inference objects are mandatory.
+ */
+export class OuterMissConfirmation {
+  private visit='';
+  private token:unknown=null;
+  private lastAt=0;
+  private prior:{tip:BoardTip;hits:number}[]=[];
+  reset():void {this.visit='';this.token=null;this.lastAt=0;this.prior=[];}
+  filter(tips:BoardTip[],visit:string,frame:unknown,now:number):BoardTip[]|null {
+    if(visit!==this.visit){this.reset();this.visit=visit;}
+    if(!tips.length)return [];
+    const misses=tips.filter(t=>boardImpactRegion(t.x,t.y)==='miss'&&!t.estimate);
+    if(frame && frame!==this.token && (!this.lastAt||now-this.lastAt>=250)){
+      const old=now-this.lastAt<=4500?this.prior:[];
+      const used=new Set<number>();
+      this.prior=misses.map(t=>{
+        let best=-1,dist=15000;
+        for(let i=0;i<old.length;i++){
+          const d=Math.hypot(t.x-old[i].tip.x,t.y-old[i].tip.y);
+          if(!used.has(i)&&d<dist){best=i;dist=d;}
+        }
+        if(best>=0)used.add(best);
+        return {tip:t,hits:best>=0?old[best].hits+1:1};
+      });
+      this.token=frame;this.lastAt=now;
+    }
+    const accepted=tips.filter(t=>t.estimate||boardImpactRegion(t.x,t.y)!=='miss'||
+      this.prior.some(p=>p.hits>=(t.confidence>=.85?2:3)&&
+        Math.hypot(t.x-p.tip.x,t.y-p.tip.y)<15000));
+    return accepted.length?accepted:null;
+  }
+}
