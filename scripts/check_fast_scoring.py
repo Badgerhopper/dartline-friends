@@ -181,7 +181,7 @@ def verify(root: Path) -> None:
             and 'rapidVisualRecovery.current.shouldProbe(' in scorer
             and 'rapidVisualRecovery.current.finished(Date.now(),' in scorer
             and '},RAPID_RECOVERY_POLL_MS)' in scorer
-            and 'RAPID_RECOVERY_FAST_GAP_MS=550' in
+            and 'RAPID_RECOVERY_FAST_GAP_MS=800' in
               (root/'src/client/lib/rapidVisualScoring.ts').read_text(encoding='utf-8')
         ),
         'Primary scored dart recognition and verified takeout are unchanged': (
