@@ -161,7 +161,9 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
     shared=root/'src/shared/types.ts'
     patch(shared,
       '  winningConfidence: number;',
-      '  winningConfidence: number;\\n  /** Shaft-based estimate rather than an observed point. */\\n  estimated?: boolean;')
+      """  winningConfidence: number;
+  /** Shaft-based estimate rather than an observed point. */
+  estimated?: boolean;""")
 
     tracker=root/'src/server/scoring/tracker.ts'
     patch(tracker,
@@ -177,7 +179,9 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
     session=root/'src/server/scoring/session.ts'
     patch(session,
       "import { DartTracker } from './tracker';",
-      "import { DartTracker } from './tracker';\\nimport { scoreFromBoardCoords } from '../../shared/scoring';\nimport {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';")
+      """import { DartTracker } from './tracker';
+import { scoreFromBoardCoords } from '../../shared/scoring';
+import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';""")
     patch(session,
       '  /** The whole camera roster, as the device registry currently sees it. */',
       """  /** A new physical shaft with a bounded hidden-tip estimate. Unlike a
