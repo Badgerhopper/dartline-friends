@@ -3,6 +3,10 @@ import {ScoringSession} from '../../src/server/scoring/session';
 import {makeMatch} from '../helpers';
 import type {MatchState} from '../../src/shared/types';
 import type {BoardTip} from '../../src/shared/vision/types';
+import {TemporalDartTracker,type TemporalFrame} from '../../src/client/lib/temporalDartEvidence';
+import {scorePhysicalDart} from '../../src/client/lib/physicalBoardImpact';
+import {VisualBoardReturn} from '../../src/client/lib/visualBoardReturn';
+import {PhotoTakeoutConfirm} from '../../src/client/lib/photoTakeoutConfirm';
 
 /**
  * Integration of REAL scoring session, real duplicate tracker, real x01 match
@@ -177,6 +181,84 @@ describe('camera reports -> server tracker -> match -> verified takeout -> next 
     }finally{g.close();}
   });
 
+  it('replays ten noisy three-dart visits through physical fallback, authoritative scoring and photo submission',()=>{
+    const g=game();
+    const size=256;
+    const frame=():TemporalFrame=>{
+      const data=new Uint8Array(size*size*4);
+      for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+        const k=(y*size+x)*4;
+        // Textured radial board with alternating sectors, not a blank image.
+        const r=Math.hypot(x-128,y-128),angle=Math.atan2(x-128,128-y);
+        const v=r>124?50:((Math.floor(angle*10/Math.PI)&1)?150:85)+(Math.floor(r)%11);
+        data[k]=v;data[k+1]=v;data[k+2]=v;data[k+3]=255;
+      }
+      return {width:size,height:size,data};
+    };
+    const copy=(f:TemporalFrame):TemporalFrame=>({...f,data:f.data.slice()});
+    const shaft=(f:TemporalFrame,x:number,y:number)=>{
+      const out=copy(f);
+      for(let xx=x;xx<x+40;xx++){
+        const width=xx>x+29?4:1;
+        for(let yy=y-width;yy<=y+width;yy++){
+          const k=(yy*size+xx)*4;out.data[k]=240;out.data[k+1]=35;out.data[k+2]=210;
+        }
+      }
+      return out;
+    };
+    const noisy=(f:TemporalFrame,i:number)=>{
+      const out=copy(f);
+      for(let y=8;y<248;y+=16)for(let x=8;x<248;x+=16){
+        const k=(y*size+x+i%3)*4;out.data[k]=220;
+      }
+      return out;
+    };
+    const visual=new VisualBoardReturn(),photo=new PhotoTakeoutConfirm();
+    const empty=frame(),project=(x:number,y:number)=>[x*1000000,(1-y)*1000000];
+    let now=Date.now(),frameId=0;
+    const step=(ms=200)=>{now+=ms;vi.setSystemTime(now);return now;};
+    try{
+      for(let turn=0;turn<10;turn++){
+        const tracker=new TemporalDartTracker();
+        const m=g.state(),key=[m.id,m.legs.length,m.visits.length,m.currentPlayerIndex].join(':');
+        visual.startNextVisit();photo.reset();
+        let image=empty;
+        visual.observe(noisy(image,0),0,step());
+        visual.observe(noisy(image,1),0,step());
+        tracker.observe(noisy(image,1),now,undefined,0,empty);
+        // Separate visible, clustered and just-outside-double-ring hits.
+        for(const [index,x,y] of [[0,100,80],[1,105,86],[2,126,30]]){
+          image=shaft(image,x,y);
+          let estimate=null;
+          for(let n=0;n<4;n++){
+            const shot=noisy(image,n);
+            const guess=tracker.observe(shot,step(),undefined,index,empty);
+            visual.observe(shot,index,now);
+            if(guess){estimate=scorePhysicalDart(guess,project);if(estimate)break;}
+          }
+          expect(estimate,'turn '+turn+' dart '+index).not.toBeNull();
+          expect(g.session.addEstimatedTip('phone-1',{x:estimate!.x,y:estimate!.y,confidence:.85},key,index)).toBe(true);
+          expect(g.darts()).toBe(index+1);
+          visual.observe(image,index+1,step());
+          tracker.observe(image,now,undefined,index+1,empty);
+        }
+        expect(g.state().currentVisit!.darts[2].score.label).toBe('miss');
+        visual.observe(noisy(empty,0),3,step());
+        let sent=0;
+        for(let n=0;n<14 && g.darts()===3;n++){
+          const shot=noisy(empty,n);
+          visual.observe(shot,3,step());
+          const clear=visual.matchesCurrentEmpty(shot,3);
+          if(clear&&photo.claim(key,now,true,true,++frameId)){
+            g.session.addTips('phone-1',[]);sent++;
+          }
+        }
+        expect(sent).toBe(2);
+        expect(g.state().visits.length).toBe(turn+1);
+        expect(g.darts()).toBe(0);
+      }
+    }finally{g.close();}
+  });
   it('two empty reports from much different times cannot complete a visit',()=>{
     const g=game();
     try{
