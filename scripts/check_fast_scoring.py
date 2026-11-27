@@ -177,11 +177,11 @@ def verify(root: Path) -> None:
               (root/'src/client/lib/rapidVisualScoring.ts').read_text(encoding='utf-8')
         ),
         'New visible dart gives priority to independent model confirmations': (
-            'rapidVisualRecovery.current.newPhysicalDart(now)' in scorer
+            'rapidVisualRecovery.current.newPhysicalDart(now,guess.obscured||guess.confidence<0.80)' in scorer
             and 'rapidVisualRecovery.current.shouldProbe(' in scorer
             and 'rapidVisualRecovery.current.finished(Date.now(),' in scorer
             and '},RAPID_RECOVERY_POLL_MS)' in scorer
-            and 'RAPID_RECOVERY_FAST_GAP_MS=800' in
+            and 'RAPID_RECOVERY_FAST_GAP_MS=550' in
               (root/'src/client/lib/rapidVisualScoring.ts').read_text(encoding='utf-8')
         ),
         'Primary scored dart recognition and verified takeout are unchanged': (
