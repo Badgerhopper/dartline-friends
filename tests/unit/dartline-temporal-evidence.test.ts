@@ -96,6 +96,25 @@ describe('on-phone temporal shaft detector, independent of neural network',()=>{
    tracker.observe(c,2200);tracker.observe(c,2450);
    expect(tracker.observe(c,2700)).not.toBeNull();
  });
+ it('ignores an off-board moving shaft even if it is visually bigger',()=>{
+   const a=blank(),b=blank();
+   // Two newly moved objects: only the right one is on the mapped board.
+   dart(b,33,71);dart(b,148,145);
+   const found=detectTemporalDart(a,b,(x)=>x>.5);
+   expect(found).not.toBeNull();
+   expect(found!.x).toBeGreaterThan(.5);
+   expect(detectTemporalDart(a,b,(_x,y)=>y<.05)).toBeNull();
+ });
+ it('filters a wall dart while preserving the next genuine board dart',()=>{
+   const tracker=new TemporalDartTracker();
+   const a=blank(),b=blank();dart(b,33,71);dart(b,148,145);
+   tracker.observe(a,1000, x=>x>.5);
+   tracker.observe(b,1250,x=>x>.5);
+   tracker.observe(b,1500,x=>x>.5);
+   const found=tracker.observe(b,1750,x=>x>.5);
+   expect(found).not.toBeNull();
+   expect(found!.x).toBeGreaterThan(.5);
+ });
  it('rejects an invalid frame and never accesses out-of-range pixels',()=>{
    expect(detectTemporalDart(blank(),{width:30,height:30,data:new Uint8Array(25)})).toBeNull();
  });
