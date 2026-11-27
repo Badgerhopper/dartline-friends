@@ -211,7 +211,7 @@ def verify(root: Path) -> None:
         'Photographic takeout needs fresh located visit plus physically cleared image': (
             'visualBoardReturn.current.matchesCurrentEmpty(image,ctx.dartsRecorded)' in scorer
             and 'locatedVisitKey.current===ctx.key' in scorer
-            and 'photoTakeoutConfirm.current.claim(ctx.key,now,true,true)' in scorer
+            and 'ctx.key,now,true,true,decodedFrameId' in scorer
             and 'photoTakeoutConfirm.current.reset()' in scorer
         ),
         'Strong photo clear runs without competing heavy AI inference': (
