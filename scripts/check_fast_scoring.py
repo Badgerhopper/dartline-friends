@@ -220,9 +220,28 @@ def verify(root: Path) -> None:
             and 'PHOTO_CLEAR_CONFIRM_SPACING_MS=900' in
               (root/'src/client/lib/photoTakeoutConfirm.ts').read_text(encoding='utf-8')
         ),
+        'Unreleased photo submission requires ACTUAL decoded video frames': (
+            'freshVideoFrames.current.sample(video,now)' in scorer
+            and 'decodedFrameId!==null' in scorer
+            and 'photoTakeoutConfirm.current.claim(' in scorer
+            and 'ctx.key,now,true,true,decodedFrameId' in scorer
+            and 'lastLocatedAt.current>0 && now-lastLocatedAt.current<=12000' in scorer
+            and 'locatedVideoSource.current===video.srcObject' in scorer
+        ),
+        'Dart removal photo proof cannot deadlock the existing AI fallback': (
+            'photoTakeoutConfirm.current.hasBudget' in scorer
+            and 'photoTakeoutConfirm.current.invalidate(ctx.key)' in scorer
+            and 'photoTakeoutPriority.current) return;' in scorer
+        ),
+        'Old empty report is forbidden from combining with much later photos': (
+            'CLEAR_BOARD_MAX_GAP_MS = 4500' in
+              (root/'src/server/scoring/verifiedBoardClear.ts').read_text(encoding='utf-8')
+            and 'now-this.firstEmptyAt>CLEAR_BOARD_MAX_GAP_MS' in
+              (root/'src/server/scoring/verifiedBoardClear.ts').read_text(encoding='utf-8')
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v5.3-camera-recovery-photo-submit-2026-11-26'
-            and 'DARTLINE v5.3' in hud
+            marker == 'dartline-v6-release-candidate-NOT-APPROVED'
+            and 'DARTLINE v6 RC · NOT RELEASED' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
