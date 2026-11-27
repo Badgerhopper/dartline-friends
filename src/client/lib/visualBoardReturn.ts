@@ -52,7 +52,7 @@ function difference(a:TemporalFrame,b:TemporalFrame,roi:Uint8Array|null=null):nu
   // comparison rejected an otherwise identical 256px board after only
   // 43 noisy pixels. Ignore isolated speckles ONLY in a low-change scene;
   // preserve connected changes (including thin shafts) as occupied evidence.
-  if(changed/total>0.003 || !changed)return changed/total;
+  if(changed/total>0.025 || !changed)return changed/total;
   let coherent=0;
   const w=a.width,h=a.height;
   for(let i=0;i<n;i++){
@@ -68,8 +68,26 @@ function difference(a:TemporalFrame,b:TemporalFrame,roi:Uint8Array|null=null):nu
   }
   // Even a partly hidden dart can leave fewer than 43 changed pixels.
   // A coherent set of >=12 is not safe empty-board proof.
-  if(coherent>=12)return Math.max(changed/total,BOARD_RETURN_MIN_CHANGED);
-  return coherent/total;
+  // Reject an actual connected shape, not a sum of dozens of disjoint
+  // two-pixel compression artifacts. Preserve thin retained shafts.
+  if(coherent>=12){
+    const seen=new Uint8Array(n),stack:number[]=[];
+    for(let i=0;i<n;i++){
+      if(!mask[i]||seen[i])continue;
+      seen[i]=1;stack.push(i);let count=0;
+      while(stack.length){
+        const p=stack.pop()!;count++;
+        if(count>=12)return Math.max(changed/total,BOARD_RETURN_MIN_CHANGED);
+        const x=p%w,y=Math.floor(p/w);
+        for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+          const xx=x+dx,yy=y+dy;
+          if(xx<0||xx>=w||yy<0||yy>=h)continue;
+          const j=yy*w+xx;if(mask[j]&&!seen[j]){seen[j]=1;stack.push(j);}
+        }
+      }
+    }
+  }
+  return 0;
 }
 export class VisualBoardReturn {
   private roi:Uint8Array|null=null;
@@ -79,6 +97,7 @@ export class VisualBoardReturn {
   private quietSince=0;
   private confirmed=false;
   private trustedEmpty=false;
+  private lastComparison=1;
   reset():void {
     this.roi=null;this.empty=null;this.prior=null;this.occupied=false;
     this.quietSince=0;this.confirmed=false;this.trustedEmpty=false;
@@ -86,7 +105,10 @@ export class VisualBoardReturn {
   startNextVisit():void {
     // Keep a genuinely verified empty reference on the same camera.
     // This prevents a fast first throw on the next turn poisoning the baseline.
-    if(!this.trustedEmpty){this.reset();return;}
+    // Preserve the initial reference even when the player manually
+    // submitted the preceding turn. It is the same fixed physical board;
+    // a failed auto-submit must not poison the reference for every later turn.
+    if(!this.empty){this.reset();return;}
     this.prior=null;this.occupied=false;this.quietSince=0;this.confirmed=false;
   }
   setRegion(mask:Uint8Array):void {
@@ -114,6 +136,7 @@ export class VisualBoardReturn {
     }
     if(!this.empty)return false;
     const changed=difference(this.empty,frame,this.roi);
+    this.lastComparison=changed;
     if(this.confirmed){
       if(changed<=BOARD_RETURN_MAX_EMPTY_CHANGED && recordedDarts===3)return false;
       // A new obstruction invalidates the hold. The next genuinely clear
@@ -145,6 +168,7 @@ export class VisualBoardReturn {
       this.empty!==null && frame.width===256 && frame.height===256 &&
       difference(this.empty,frame,this.roi)<=BOARD_RETURN_MAX_EMPTY_CHANGED;
   }
+  get changedFraction():number{return this.lastComparison;}
   get emptyReference():TemporalFrame|null{return this.empty;}
   get hasRegion():boolean{return this.roi!==null;}
   get hasEmptyReference():boolean{return this.empty!==null;}
