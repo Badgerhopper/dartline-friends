@@ -138,6 +138,8 @@ export class VisualBoardReturn {
       this.empty!==null && frame.width===256 && frame.height===256 &&
       difference(this.empty,frame,this.roi)<=BOARD_RETURN_MAX_EMPTY_CHANGED;
   }
+  get emptyReference():TemporalFrame|null{return this.empty;}
+  get hasRegion():boolean{return this.roi!==null;}
   get hasEmptyReference():boolean{return this.empty!==null;}
   get hasSeenPhysicalDarts():boolean{return this.occupied;}
 }
