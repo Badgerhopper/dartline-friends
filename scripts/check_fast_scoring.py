@@ -232,11 +232,15 @@ def verify(root: Path) -> None:
         ),
         'Dart removal photo proof cannot deadlock the existing AI fallback': (
             'photoTakeoutConfirm.current.hasBudget' in scorer
-            and 'photoTakeoutConfirm.current.invalidate(ctx.key)' in scorer
+            and 'photoTakeoutConfirm.current.invalidate(ctx.key,now)' in scorer
             and 'photoTakeoutPriority.current) return;' in scorer
         ),
         'Old empty report is forbidden from combining with much later photos': (
-            'CLEAR_BOARD_MAX_GAP_MS = 4500' in
+            'PHOTO_CLEAR_INTERRUPTED_WAIT_MS=4700' in
+              (root/'src/client/lib/photoTakeoutConfirm.ts').read_text(encoding='utf-8')
+            and 'PHOTO_CLEAR_MAX_PAIRS=2' in
+              (root/'src/client/lib/photoTakeoutConfirm.ts').read_text(encoding='utf-8')
+            and 'CLEAR_BOARD_MAX_GAP_MS = 4500' in
               (root/'src/server/scoring/verifiedBoardClear.ts').read_text(encoding='utf-8')
             and 'now-this.firstEmptyAt>CLEAR_BOARD_MAX_GAP_MS' in
               (root/'src/server/scoring/verifiedBoardClear.ts').read_text(encoding='utf-8')
