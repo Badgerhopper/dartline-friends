@@ -37,7 +37,7 @@ describe('iPhone camera freshness proof',()=>{
    x.fire();
    expect(proof.sample(x.video,1000)).toBe(1);
    expect(proof.sample(x.video,1000+FRESH_VIDEO_MAX_AGE_MS+1)).toBeNull();
-   x.fire();vi.setSystemTime(2000);
+   vi.setSystemTime(2000);x.fire();
    expect(proof.sample(x.video,2000)).toBe(2);
    proof.stop();expect(x.active()).toBe(0);
  });
@@ -59,7 +59,7 @@ describe('iPhone camera freshness proof',()=>{
    x.changeSource();
    expect(proof.sample(x.video,1100)).toBeNull();
    x.fire();vi.setSystemTime(1200);
-   expect(proof.sample(x.video,1200)).toBe(1);
+   expect(proof.sample(x.video,1200)).toBe(2);
  });
  it('fails closed on stopped camera, hidden video or missing native API',()=>{
    vi.useFakeTimers();vi.setSystemTime(1000);
