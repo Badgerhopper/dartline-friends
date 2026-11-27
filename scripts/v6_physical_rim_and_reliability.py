@@ -34,7 +34,7 @@ def install(root:Path):
     patch(scorer,
       "import { TemporalDartTracker, readTemporalCamera, TEMPORAL_POLL_MS, type TemporalFrame } from '../../lib/temporalDartEvidence';",
       """import { TemporalDartTracker, readTemporalCamera, TEMPORAL_POLL_MS, type TemporalFrame } from '../../lib/temporalDartEvidence';
-import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physicalBoardMask, scoreHiddenTip } from '../../lib/physicalBoardImpact';""")
+import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physicalBoardMask, scorePhysicalDart } from '../../lib/physicalBoardImpact';""")
     patch(scorer,
       "  const onTipsWithMeter = useCallback((tips: BoardTip[], ms: number) => {",
       """  const onTipsWithMeter = useCallback((tips: BoardTip[], ms: number) => {
@@ -60,7 +60,7 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
       const board=transformPoint(p,frame.result.homography);
       if(!board || !board.every(Number.isFinite))return;""",
       """      const runtime=vision.runtimeRef.current;
-      const frame=vision.frameRef.current;
+      const frame=vision.frameRef.current?.result?vision.frameRef.current:lastGoodPose.current;
       // Evaluate EVERY changed dart-shaped component against the physical
       // circular board instead of selecting a larger stored/wall dart first.
       // This also makes real near-wire/outer-board misses eligible.
@@ -104,15 +104,17 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
       """      const result=scoreFromBoardCoords(x,y);
       // Outer annulus:""",
       """      const result=scoreFromBoardCoords(x,y);
-      const hidden=scoreHiddenTip(guess,project);
-      if(hidden && guess.recordedBefore===ctx.dartsRecorded &&
-         ctx.dartsRecorded>0 && ctx.dartsRecorded<3 &&
-         decodedFrameId!==null && locatedVisitKey.current===ctx.key &&
-         lastLocatedAt.current>0 && now-lastLocatedAt.current<=2500){
-        latestOnTips.current([{x:hidden.x,y:hidden.y,confidence:guess.confidence,
+      const physical=scorePhysicalDart(guess,project);
+      if(physical && guess.recordedBefore===ctx.dartsRecorded &&
+         ctx.dartsRecorded<3 && decodedFrameId!==null &&
+         locatedVideoSource.current===stream &&
+         lastLocatedAt.current>0 && now-lastLocatedAt.current<=12000){
+        // Atomic visit/count prevents the normal AI and visual fallback
+        // from both claiming the same arrival. Visible and hidden hits,
+        // including the number ring, use the same independent pathway.
+        latestOnTips.current([{x:physical.x,y:physical.y,confidence:guess.confidence,
           estimate:{visitKey:ctx.key,expectedCount:ctx.dartsRecorded}}],0);
-        // Also publish the editable suggestion below. A rejected stale
-        // estimate must not silently remove the player's fallback.
+        return;
       }
       // Outer annulus:""")
     patch(scorer,
@@ -122,6 +124,12 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
     patch(scorer,
       '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.reset();\n        photoTakeoutConfirm.current.reset();',
       '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.startNextVisit();\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
+    patch(scorer,
+      '  const lastLocatedPhotoFrame = useRef<unknown>(null);',
+      '  const lastLocatedPhotoFrame = useRef<unknown>(null);\\n  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);')
+    patch(scorer,
+      '        lastLocatedPhotoFrame.current=vision.frameRef.current;',
+      '        lastLocatedPhotoFrame.current=vision.frameRef.current;\\n        lastGoodPose.current=null;\\n        temporalDartTracker.current.reset();')
     # Install the calibrated physical-board region once per visit, not once
     # per camera frame. Takeout still requires the occupied/empty sequence.
     patch(scorer,
@@ -134,6 +142,7 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
             locatedVisitKey.current=ctx.key;
             locatedVideoSource.current=video?.srcObject??null;
             lastLocatedAt.current=now;
+            lastGoodPose.current=completed;
             if(!visualBoardReturn.current.hasRegion && ctx.dartsRecorded===0){
               const runtime=vision.runtimeRef.current;
               if(runtime?.camera.active){
@@ -190,12 +199,12 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
   addEstimatedTip(deviceId:string,tip:BoardTip,key:string,expectedCount:number):boolean {
     if(!this.cameras.has(deviceId)||this.cameras.size!==1||
        !Number.isFinite(tip.x)||!Number.isFinite(tip.y)||!Number.isFinite(tip.confidence)||
-       tip.confidence<.75||tip.confidence>1||
+       tip.confidence<.67||tip.confidence>1||
        Math.hypot(tip.x-BOARD_CENTER,tip.y-BOARD_CENTER)>boardRadii(BOARD_MAX).boardOuter)return false;
     this.syncVisit();
     const match=this.playableMatch();
     if(!match||key!==[match.id,match.legs.length,match.visits.length,match.currentPlayerIndex].join(':')
-       ||!Number.isInteger(expectedCount)||expectedCount<1||expectedCount>2
+       ||!Number.isInteger(expectedCount)||expectedCount<0||expectedCount>2
        ||(match.currentVisit?.darts.length??0)!==expectedCount
        ||this.tracker.count!==expectedCount||match.currentVisit?.locked)return false;
     const playerId=this.scoringPlayerId(match);
@@ -226,7 +235,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
     if(tips.length!==1)return;
     const e=msg.tips[0].estimate;
     if(!e||typeof e.visitKey!=='string'||e.visitKey.length>180||
-       !Number.isInteger(e.expectedCount)||tips[0].confidence<0.75)return;
+       !Number.isInteger(e.expectedCount)||tips[0].confidence<0.67)return;
     session.addEstimatedTip(client.deviceId,tips[0],e.visitKey,e.expectedCount);
     return;
   }
@@ -237,7 +246,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       "<small>DART {i+1}{darts[i]?.detection?.estimated ? ' · EST.' : i<darts.length ? ' ✎' : ''}</small>")
 
     (root/'src/client/public/dartline-build.txt').write_text(
-      'dartline-v6.2-shaft-extrapolation-RC\n',
+      'dartline-v6.3-physical-event-recovery-RC\n',
       encoding='utf-8')
     print('DartLine v6 DRAFT physical board-only MISS recognition enabled')
 
