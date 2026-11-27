@@ -34,7 +34,7 @@ def install(root:Path):
     patch(scorer,
       "import { TemporalDartTracker, readTemporalCamera, TEMPORAL_POLL_MS, type TemporalFrame } from '../../lib/temporalDartEvidence';",
       """import { TemporalDartTracker, readTemporalCamera, TEMPORAL_POLL_MS, type TemporalFrame } from '../../lib/temporalDartEvidence';
-import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch } from '../../lib/physicalBoardImpact';""")
+import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physicalBoardMask, scoreHiddenTip } from '../../lib/physicalBoardImpact';""")
     patch(scorer,
       "  const onTipsWithMeter = useCallback((tips: BoardTip[], ms: number) => {",
       """  const onTipsWithMeter = useCallback((tips: BoardTip[], ms: number) => {
@@ -77,7 +77,7 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch } from 
         (gx,gy)=>{
           const point=project(gx,gy);
           return point!==null && boardImpactRegion(point[0],point[1])!=='outside';
-        });
+        },ctx.dartsRecorded,visualBoardReturn.current.emptyReference);
       if(!guess || !runtime?.camera.active || !frame?.result)return;
       rapidVisualRecovery.current.newPhysicalDart(now,guess.obscured||guess.confidence<0.80);
       const board=project(guess.x,guess.y);
@@ -98,8 +98,136 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch } from 
       // darts; the independent low confidence guess remains manual.
       if(strongNewPhysicalMiss(x,y,guess)){""")
 
+    # Geometry-qualified occlusion candidates go through a dedicated,
+    # atomic server count/visit check rather than guessing another raw AI tip.
+    patch(scorer,
+      """      const result=scoreFromBoardCoords(x,y);
+      // Outer annulus:""",
+      """      const result=scoreFromBoardCoords(x,y);
+      const hidden=scoreHiddenTip(guess,project);
+      if(hidden && guess.recordedBefore===ctx.dartsRecorded &&
+         ctx.dartsRecorded>0 && ctx.dartsRecorded<3 &&
+         decodedFrameId!==null && locatedVisitKey.current===ctx.key &&
+         lastLocatedAt.current>0 && now-lastLocatedAt.current<=2500){
+        latestOnTips.current([{x:hidden.x,y:hidden.y,confidence:guess.confidence,
+          estimate:{visitKey:ctx.key,expectedCount:ctx.dartsRecorded}}],0);
+        // Also publish the editable suggestion below. A rejected stale
+        // estimate must not silently remove the player's fallback.
+      }
+      // Outer annulus:""")
+    patch(scorer,
+      '    if(tips.length && !takeoutExclusive.current){',
+      '    if(tips.length && !takeoutExclusive.current && !tips.some(t=>t.estimate)){')
+
+    # Install the calibrated physical-board region once per visit, not once
+    # per camera frame. Takeout still requires the occupied/empty sequence.
+    patch(scorer,
+      """          if(completed.result){
+            locatedVisitKey.current=ctx.key;
+            locatedVideoSource.current=video?.srcObject??null;
+            lastLocatedAt.current=now;
+          }""",
+      """          if(completed.result){
+            locatedVisitKey.current=ctx.key;
+            locatedVideoSource.current=video?.srcObject??null;
+            lastLocatedAt.current=now;
+            if(!visualBoardReturn.current.hasRegion && ctx.dartsRecorded===0){
+              const runtime=vision.runtimeRef.current;
+              if(runtime?.camera.active){
+                const lens=sliderValueToLensK1(runtime.lensCalibration);
+                const matrix=completed.result.homography;
+                visualBoardReturn.current.setRegion(physicalBoardMask((x,y)=>
+                  transformPoint(undistortNormalizedPoint([x,y],lens),matrix)));
+              }
+            }
+          }""")
+
+    types=root/'src/shared/vision/types.ts'
+    patch(types,
+      """export interface BoardTip {
+  x: number;
+  y: number;
+  confidence: number;
+}""",
+      """export interface BoardTip {
+  x: number;
+  y: number;
+  confidence: number;
+  estimate?: {visitKey:string;expectedCount:number};
+}""")
+    shared=root/'src/shared/types.ts'
+    patch(shared,
+      '  winningConfidence: number;',
+      '  winningConfidence: number;\\n  /** Shaft-based estimate rather than an observed point. */\\n  estimated?: boolean;')
+
+    tracker=root/'src/server/scoring/tracker.ts'
+    patch(tracker,
+      '  /** Forget the darts in the board.',
+      """  /** Remember the accepted estimated point so a later AI sighting
+   * cannot score it again. Called only after the match accepts the dart. */
+  rememberEstimate(deviceId:string,tip:{x:number;y:number;confidence:number}):void {
+    this.tracked.push({x:tip.x,y:tip.y,confidence:tip.confidence,
+      observations:[{x:tip.x,y:tip.y,confidence:tip.confidence,deviceId}]});
+  }
+
+  /** Forget the darts in the board.""")
+    session=root/'src/server/scoring/session.ts'
+    patch(session,
+      "import { DartTracker } from './tracker';",
+      "import { DartTracker } from './tracker';\\nimport { scoreFromBoardCoords } from '../../shared/scoring';")
+    patch(session,
+      '  /** The whole camera roster, as the device registry currently sees it. */',
+      """  /** A new physical shaft with a bounded hidden-tip estimate. Unlike a
+   * regular batch, this is checked atomically against the live match and
+   * accepted only for the exact pre-throw count. No replay or late AI race. */
+  addEstimatedTip(deviceId:string,tip:BoardTip,key:string,expectedCount:number):boolean {
+    if(!this.cameras.has(deviceId)||this.cameras.size!==1)return false;
+    this.syncVisit();
+    const match=this.playableMatch();
+    if(!match||key!==[match.id,match.legs.length,match.visits.length,match.currentPlayerIndex].join(':')
+       ||!Number.isInteger(expectedCount)||expectedCount<1||expectedCount>2
+       ||(match.currentVisit?.darts.length??0)!==expectedCount
+       ||this.tracker.count!==expectedCount||match.currentVisit?.locked)return false;
+    const playerId=this.scoringPlayerId(match);
+    if(!playerId)return false;
+    const outcome=addDartToMatch(match,playerId,{
+      x:tip.x,y:tip.y,score:scoreFromBoardCoords(tip.x,tip.y),
+      detection:{expectedScorers:1,reportingScorers:1,contributingScorers:1,
+        winningScorer:this.opts.scorerLabel(deviceId),
+        winningScorerId:this.opts.scorerId(deviceId),
+        winningConfidence:tip.confidence,estimated:true},
+    });
+    if(!outcome.success||(outcome.match.currentVisit?.darts.length??0)!==expectedCount+1)
+      return false;
+    this.tracker.rememberEstimate(deviceId,tip);
+    this.verifiedClear.reset();
+    this.emptyCameras.clear();
+    this.opts.commit(outcome.match);
+    return true;
+  }
+
+  /** The whole camera roster, as the device registry currently sees it. */""")
+    devices=root/'src/server/scoringDevices.ts'
+    patch(devices,
+      '  session.addTips(client.deviceId, tips);',
+      """  const estimated=msg.tips.some((tip:any)=>tip?.estimate!==undefined);
+  if(estimated){
+    // Never let an invalid estimate fall through as an ordinary AI report.
+    if(tips.length!==1)return;
+    const e=msg.tips[0].estimate;
+    if(!e||typeof e.visitKey!=='string'||e.visitKey.length>180||
+       !Number.isInteger(e.expectedCount)||tips[0].confidence<0.75)return;
+    session.addEstimatedTip(client.deviceId,tips[0],e.visitKey,e.expectedCount);
+    return;
+  }
+  session.addTips(client.deviceId, tips);""")
+    hud=root/'src/client/components/MobileMatchHUD.tsx'
+    patch(hud,
+      "<small>DART {i+1}{i<darts.length ? ' ✎' : ''}</small>",
+      "<small>DART {i+1}{darts[i]?.detection?.estimated ? ' · EST.' : i<darts.length ? ' ✎' : ''}</small>")
+
     (root/'src/client/public/dartline-build.txt').write_text(
-      'dartline-v6.1-camera-noise-cluster-recovery-RC\n',
+      'dartline-v6.2-shaft-extrapolation-RC\n',
       encoding='utf-8')
     print('DartLine v6 DRAFT physical board-only MISS recognition enabled')
 
