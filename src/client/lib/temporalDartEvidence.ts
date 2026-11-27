@@ -228,6 +228,10 @@ export class TemporalDartTracker {
   private baselineCount=0;
   private region:Uint8Array|null=null;
   setRegion(region:Uint8Array|null):void {this.region=region;}
+  prime(frame:TemporalFrame,recordedDarts=0):void {
+    this.baseline=frame;this.prior=frame;this.quiet=0;
+    this.lastDecision=0;this.baselineCount=recordedDarts;
+  }
   reset():void {this.region=null;this.baseline=null;this.prior=null;this.quiet=0;this.lastDecision=0;this.baselineCount=0;}
   observe(frame:TemporalFrame,now:number,
     accept?:(x:number,y:number)=>boolean,recordedDarts=0,empty:TemporalFrame|null=null):TemporalGuess|null {
