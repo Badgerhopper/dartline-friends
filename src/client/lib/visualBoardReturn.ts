@@ -29,6 +29,11 @@ function difference(a:TemporalFrame,b:TemporalFrame):number {
     bs.push(b.data[k+2]-a.data[k+2]);
   }
   const ro=median(rs),go=median(gs),bo=median(bs);
+  // Uniformly occluded camera frames, overexposure or a covered lens
+  // cannot be treated as the original empty board. The same subtraction
+  // that makes modest auto-exposure changes harmless otherwise erases
+  // the evidence of a FULL-frame obstruction.
+  if(Math.max(Math.abs(ro),Math.abs(go),Math.abs(bo))>45) return 1;
   let changed=0,total=0;
   for(let i=0;i<n;i+=SAMPLE_STEP){
     const k=i*4;
