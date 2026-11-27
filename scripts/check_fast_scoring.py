@@ -259,8 +259,12 @@ def verify(root: Path) -> None:
               (root/'src/client/lib/physicalBoardImpact.ts').read_text(encoding='utf-8')
         ),
         'Release marker and visible version match': (
-            marker == 'dartline-v6.3-physical-event-recovery-RC'
-            and 'DARTLINE v6.3 RC · NOT RELEASED' in hud
+            marker == 'dartline-v6.3.1-diagnostics-RC'
+            and 'DARTLINE v6.3.1 RC · NOT RELEASED' in hud
+            and '<summary>Camera Diagnostics' in hud
+            and 'No scorer trace received' in hud
+            and 'Context ' in scorer
+            and 'cameraTrace: [' in scorer
         ),
     }
     failed = [name for name, success in checks.items() if not success]
