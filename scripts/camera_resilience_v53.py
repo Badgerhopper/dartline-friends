@@ -24,6 +24,8 @@ def patch(path:Path,before:str,after:str):
 def install(root:Path):
     for rel in (
       'src/client/lib/photoTakeoutConfirm.ts',
+      'src/client/lib/inferenceErrorRecovery.ts',
+      'tests/unit/dartline-inference-error-recovery.test.ts',
       'tests/unit/dartline-photo-takeout-confirm.test.ts',
       'src/client/lib/visualBoardReturn.ts',
       'tests/unit/dartline-visual-board-return.test.ts',
@@ -41,6 +43,39 @@ def install(root:Path):
         // permanently in an error state after a successful model frame.
         setError(previous => previous === null ? previous : null);
         setScanCount((count) => count + 1);""")
+
+    runtime=root/'src/client/vision/visionRuntime.ts'
+    patch(runtime,
+      "import { recoverBoard } from '../lib/boardRecovery';",
+      "import { recoverBoard } from '../lib/boardRecovery';\n"
+      "import { InferenceErrorRecovery } from '../lib/inferenceErrorRecovery';")
+    patch(runtime,
+      "  let modelNeedsReload = false;",
+      "  let modelNeedsReload = false;\n"
+      "  const inferenceErrorRecovery=new InferenceErrorRecovery();")
+    patch(runtime,
+      "      onFrame({\n        keypoints,",
+      "      inferenceErrorRecovery.succeeded();\n"
+      "      onFrame({\n        keypoints,")
+    patch(runtime,
+      """    } catch (err) {
+      onStatus({ stage: 'error', text: err instanceof Error ? err.message : String(err) });
+      return [];
+    }""",
+      """    } catch (err) {
+      // Genuine consecutive LiteRT failures get one chance to rebuild
+      // their model backend without stopping the video or player session.
+      // Never recompile after a single temporary camera read hiccup.
+      if(inferenceErrorRecovery.failed()){
+        modelNeedsReload=true;
+        onStatus({stage:'model',text:'Reinitializing failed AI engine'});
+      }
+      onStatus({ stage: 'error', text: err instanceof Error ? err.message : String(err) });
+      return [];
+    }""")
+    patch(runtime,
+      "      const session = ++cameraSession;",
+      "      const session = ++cameraSession;\n      inferenceErrorRecovery.reset();")
 
     scorer=root/'src/client/pages/scorer/ScorerPage.tsx'
     patch(scorer,
