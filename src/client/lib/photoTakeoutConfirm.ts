@@ -13,7 +13,14 @@
  */
 export const PHOTO_CLEAR_CONFIRM_SPACING_MS=900;
 export const PHOTO_CLEAR_RETRY_MS=3200;
-export const PHOTO_CLEAR_MAX_PAIRS=4;
+// Two independent image pairs are enough to tolerate a transient lost send;
+// do not starve the heavier AI fallback for many seconds when the server
+// cannot acknowledge the photographic path.
+export const PHOTO_CLEAR_MAX_PAIRS=2;
+// This exceeds the server's longest permitted gap between empty votes.
+// After an interrupted pair, we must not let an OLD first server vote
+// combine with the first vote of a newly started pair.
+export const PHOTO_CLEAR_INTERRUPTED_WAIT_MS=4700;
 
 export class PhotoTakeoutConfirm {
   private visit='';
@@ -21,17 +28,27 @@ export class PhotoTakeoutConfirm {
   private lastSentAt=0;
   private lastFrameId=0;
   private totalPairs=0;
+  private blockedUntil=0;
 
   reset():void{
     this.visit='';this.sent=0;this.lastSentAt=0;
     this.lastFrameId=0;this.totalPairs=0;
+    this.blockedUntil=0;
   }
 
   /** A nonempty, obstructed, or no-longer-located frame cancels the first
    * partial empty vote. Never stitch independent false clears together.
    */
-  invalidate(visit:string):void{
+  invalidate(visit:string,now:number):void{
     if(visit!==this.visit){this.reset();this.visit=visit;return;}
+    // No server reset was sent with the invalid photo, so the server may
+    // still be holding our FIRST empty vote. Wait for it to expire before
+    // sending the first vote of another sequence. This is conservative
+    // but prevents false submission via a stale cross-sequence pair.
+    if(this.sent===1 && Number.isFinite(now) && now>0){
+      this.blockedUntil=Math.max(this.blockedUntil,
+        this.lastSentAt+PHOTO_CLEAR_INTERRUPTED_WAIT_MS);
+    }
     this.sent=0;
   }
 
@@ -43,10 +60,11 @@ export class PhotoTakeoutConfirm {
     if(!verifiedEmpty||!boardLocated||
        decodedFrameId===null||!Number.isSafeInteger(decodedFrameId)||
        decodedFrameId<=0){
-      this.invalidate(visit);
+      this.invalidate(visit,now);
       return false;
     }
     if(this.totalPairs>=PHOTO_CLEAR_MAX_PAIRS)return false;
+    if(now<this.blockedUntil)return false;
     // Even a 900ms timer cannot make one frozen video frame independent.
     if(decodedFrameId<=this.lastFrameId)return false;
     if(this.sent===2){
