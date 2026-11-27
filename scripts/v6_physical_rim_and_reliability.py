@@ -28,22 +28,8 @@ def install(root:Path):
       dst.parent.mkdir(parents=True,exist_ok=True)
       shutil.copyfile(BASE/rel,dst)
 
-    pipeline=root/'src/client/vision/predictionPipeline.ts'
-    patch(pipeline,
-      "import { BOARD_MAX } from '../../shared/scoring';",
-      "import { BOARD_MAX } from '../../shared/scoring';\n"
-      "import { boardImpactRegion } from '../lib/physicalBoardImpact';")
-    patch(pipeline,
-      """    const proj = transformPoint(correctedImage, homography);
-    if (!proj) continue;
-    tips.push({""",
-      """    const proj = transformPoint(correctedImage, homography);
-    if (!proj) continue;
-    // The 451mm square covers wall/cabinet pixels outside the real circular
-    // 450mm dartboard. Reject them BEFORE axis clamping into false misses.
-    if(boardImpactRegion(proj[0],proj[1])==='outside')continue;
-    tips.push({""")
-
+    # Keep raw inference report truth until the publishing bridge: dropping
+    # all off-board positives too early could turn them into fake [] takeouts.
     scorer=root/'src/client/pages/scorer/ScorerPage.tsx'
     patch(scorer,
       "import { TemporalDartTracker, readTemporalCamera, TEMPORAL_POLL_MS, type TemporalFrame } from '../../lib/temporalDartEvidence';",
@@ -109,27 +95,6 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch } from 
       // physical dart-shaped image difference ONLY. No wall or static spare
       // darts; the independent low confidence guess remains manual.
       if(strongNewPhysicalMiss(x,y,guess)){""")
-
-    # The upstream expectation used to CLAMP a tip projected far into
-    # surrounding wall pixels into a plausible board coordinate. That is
-    # incompatible with physically bounded miss detection. Keep the case,
-    # but assert the correct fail-closed behavior instead.
-    geom=root/'tests/unit/vision-geometry.test.ts'
-    patch(geom,
-      """  it('clamps a tip projected outside the board square', () => {
-    const wayOff = tipAt([BOARD_CENTER, BOARD_CENTER]);
-    wayOff[0] = -4; // far off frame, projects well outside the board
-    const result = run([wayOff]);
-    expect(result!.tips[0].x).toBeGreaterThanOrEqual(0);
-    expect(result!.tips[0].y).toBeGreaterThanOrEqual(0);
-  });""",
-      """  it('rejects a tip from outside the physical board instead of clamping wall pixels', () => {
-    const wayOff = tipAt([BOARD_CENTER, BOARD_CENTER]);
-    wayOff[0] = -4; // off-frame; may be a wall-mounted stored dart
-    const result = run([wayOff]);
-    expect(result).not.toBeNull();
-    expect(result!.tips).toEqual([]);
-  });""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
       'dartline-v6-physical-board-miss-recovery-DRAFT-DO-NOT-DEPLOY\n',
