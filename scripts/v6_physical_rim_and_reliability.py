@@ -135,6 +135,37 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
       'try { latestOnTips.current(relaxed.tips,Math.round(frame.ms)); }',
       'try { latestOnTips.current(onBoardTips,Math.round(frame.ms)); }')
 
+    # Discard an in-flight verifier result if the owner advanced the visit
+    # or Safari replaced the stream before inference completed.
+    patch(scorer,
+      """      const before=vision.frameRef.current;
+      // Candidate-only inference:""",
+      """      const before=vision.frameRef.current;
+      const retrievalVisit=visitContext.current.key;
+      const retrievalSource=vision.refs.video.current?.srcObject;
+      // Candidate-only inference:""")
+    patch(scorer,
+      '        if (disposed || result===null || !frame || frame===before) {',
+      """        if (disposed || result===null || !frame || frame===before ||
+            retrievalVisit!==visitContext.current.key ||
+            retrievalSource!==vision.refs.video.current?.srcObject ||
+            visitContext.current.dartsRecorded!==3) {""")
+    # Report only current-visit server status, rather than leaving
+    # "submitting" visible indefinitely from an earlier successful round.
+    session_status=root/'src/server/scoring/session.ts'
+    patch(session_status,
+      """    this.tracker.reset();
+    this.verifiedClear.reset();
+    this.consecutiveEmpty = 0;""",
+      """    this.tracker.reset();
+    this.verifiedClear.reset();
+    this.takeoutReason=this.takeoutMode==='verified'
+      ? 'Waiting for verified empty board' : 'Disabled';
+    this.consecutiveEmpty = 0;""")
+    patch(session_status,
+      '  get verifiedTakeoutStatus() {',
+      '  get verifiedTakeoutStatus() {\n    this.syncVisit();')
+
     # Carry the actual inference-time photo with the located result. The
     # next timer tick is not necessarily the picture the AI classified.
     runtime=root/'src/client/vision/visionRuntime.ts'
