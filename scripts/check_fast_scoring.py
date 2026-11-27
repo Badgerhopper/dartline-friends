@@ -190,6 +190,14 @@ def verify(root: Path) -> None:
             and 'runtime.inferCandidates()' in scorer
             and "takeoutExclusive.current && ctx.dartsRecorded===3" in scorer
         ),
+        'Consecutive runner errors get one bounded backend recompile': (
+            'inferenceErrorRecovery.failed()' in runtime
+            and 'modelNeedsReload=true;' in runtime
+            and 'inferenceErrorRecovery.succeeded()' in runtime
+            and 'inferenceErrorRecovery.reset()' in runtime
+            and 'RECOVERY_FAILURES_BEFORE_REBUILD=3' in
+              (root/'src/client/lib/inferenceErrorRecovery.ts').read_text(encoding='utf-8')
+        ),
         'Transient AI inference errors clear on subsequent successful frames': (
             'setError(previous => previous === null ? previous : null)' in
               (root/'src/client/hooks/useVisionRuntime.ts').read_text(encoding='utf-8')
