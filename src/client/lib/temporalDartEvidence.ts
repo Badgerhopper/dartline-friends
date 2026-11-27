@@ -38,26 +38,29 @@ function median(values:number[]):number {
 /** Distinguish new colored flights from similar-luminance board segments,
  * compensate auto-exposure separately in RGB, and reject broad cast shadows.
  */
-function delta(before:TemporalFrame,after:TemporalFrame) {
+function delta(before:TemporalFrame,after:TemporalFrame,roi:Uint8Array|null=null,minThreshold=14) {
   const a=before.data,b=after.data,n=before.width*before.height;
   const rs:number[]=[],gs:number[]=[],bs:number[]=[];
   for(let i=0;i<n;i+=29){
+    if(roi&&!roi[i])continue;
     const k=i*4;rs.push(b[k]-a[k]);
     gs.push(b[k+1]-a[k+1]);bs.push(b[k+2]-a[k+2]);
   }
   const ro=median(rs),go=median(gs),bo=median(bs);
   const noise:number[]=[];
   for(let i=0;i<n;i+=43){
+    if(roi&&!roi[i])continue;
     const k=i*4;
     noise.push(Math.max(
       Math.abs(b[k]-a[k]-ro),
       Math.abs(b[k+1]-a[k+1]-go),
       Math.abs(b[k+2]-a[k+2]-bo)));
   }
-  const threshold=Math.max(14,median(noise)*3+7);
+  const threshold=Math.max(minThreshold,median(noise)*3+7);
   const bin=new Uint8Array(n);
   let changed=0;
   for(let i=0;i<n;i++){
+    if(roi&&!roi[i])continue;
     const k=i*4;
     const oldR=a[k],oldG=a[k+1],oldB=a[k+2];
     const newR=b[k]-ro,newG=b[k+1]-go,newB=b[k+2]-bo;
@@ -223,7 +226,9 @@ export class TemporalDartTracker {
   private quiet=0;
   private lastDecision=0;
   private baselineCount=0;
-  reset():void {this.baseline=null;this.prior=null;this.quiet=0;this.lastDecision=0;this.baselineCount=0;}
+  private region:Uint8Array|null=null;
+  setRegion(region:Uint8Array|null):void {this.region=region;}
+  reset():void {this.region=null;this.baseline=null;this.prior=null;this.quiet=0;this.lastDecision=0;this.baselineCount=0;}
   observe(frame:TemporalFrame,now:number,
     accept?:(x:number,y:number)=>boolean,recordedDarts=0,empty:TemporalFrame|null=null):TemporalGuess|null {
     if(!Number.isFinite(now)||now<=0)return null;
@@ -231,7 +236,11 @@ export class TemporalDartTracker {
     if(!this.prior){this.prior=frame;return null;}
     if(this.prior.width!==frame.width||this.prior.height!==frame.height||
        frame.data.length!==frame.width*frame.height*4){this.reset();return null;}
-    const moving=delta(this.prior,frame);
+    const region=this.region?.length===frame.width*frame.height?this.region:null;
+    // Motion settling should not depend on wall activity, nor small changes
+    // from iPhone auto-exposure and video compression. The actual shaft
+    // extraction below retains the more sensitive threshold.
+    const moving=delta(this.prior,frame,region,26);
     const motion=moving.fraction;
     // Compression noise and minor flicker are often scattered across the
     // board. A coherent moving component, not ten arbitrary pixels, is
@@ -248,7 +257,7 @@ export class TemporalDartTracker {
     // Reuse the baseline difference for shape extraction rather than doing
     // a second full RGB comparison on the same pair. A short exposed shaft
     // may change fewer than 46 pixels when a nearby dart hides the rest.
-    const change=delta(this.baseline,frame);
+    const change=delta(this.baseline,frame,region);
     const diff=change.fraction;
     if(diff<0.00025){this.baselineCount=recordedDarts;return null;}
     // A hand covering much of the board is not a throw, and must not
