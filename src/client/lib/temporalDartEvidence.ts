@@ -10,7 +10,7 @@
  * server-side CV, or extra network requests are performed.
  */
 export const TEMPORAL_SIZE=256;
-export const TEMPORAL_POLL_MS=240;
+export const TEMPORAL_POLL_MS=160;
 const MIN_COMPONENT=16;
 const MAX_CHANGE_FRACTION=0.115;
 const MIN_LENGTH=17;
@@ -54,7 +54,7 @@ function delta(before:TemporalFrame,after:TemporalFrame) {
       Math.abs(b[k+1]-a[k+1]-go),
       Math.abs(b[k+2]-a[k+2]-bo)));
   }
-  const threshold=Math.max(18,median(noise)*4+8);
+  const threshold=Math.max(14,median(noise)*3+7);
   const bin=new Uint8Array(n);
   let changed=0;
   for(let i=0;i<n;i++){
@@ -69,7 +69,9 @@ function delta(before:TemporalFrame,after:TemporalFrame) {
     const oldSum=oldR+oldG+oldB,newSum=newR+newG+newB;
     if(oldSum>120 && newR<oldR && newG<oldG && newB<oldB){
       const kShadow=newSum/oldSum;
-      if(kShadow>0.70 && kShadow<1){
+      // Narrow dark steel shafts are often achromatic too. Preserve their
+      // pixels; reject broad shadows by connected shape instead.
+      if(kShadow>0.90 && kShadow<1){
         const hueError=Math.max(
           Math.abs(newR-oldR*kShadow),
           Math.abs(newG-oldG*kShadow),
@@ -187,7 +189,7 @@ function detectFromDelta(before:TemporalFrame,d:ReturnType<typeof delta>,
 export function extrapolateOccludedTip(guess:TemporalGuess,before:TemporalFrame,
   empty:TemporalFrame|null):TemporalGuess {
   const axis=guess.axis;
-  if(!empty||!axis||axis.ratio<1.6||guess.length<24||guess.confidence<.68||
+  if(!empty||!axis||axis.ratio<1.35||guess.length<17||guess.confidence<.60||
      empty.width!==before.width||empty.height!==before.height||
      empty.data.length!==before.data.length)return guess;
   const w=before.width,h=before.height;
@@ -206,18 +208,14 @@ export function extrapolateOccludedTip(guess:TemporalGuess,before:TemporalFrame,
   for(let d=0;d<=24;d++){
     if(occupied(d)){if(first<0)first=d;last=d;}
     else if(first>=0&&d-last>=2)break;
-    else if(first<0&&d>=3)break;
+    else if(first<0&&d>=5)break;
   }
-  if(first<0||first>3||last-first<1||last>=23)return guess;
+  if(first<0||first>5||last-first<1||last>=23)return guess;
   const end=last+2;
   const endX=(x+axis.x*end)/w,endY=(y+axis.y*end)/h;
   if(endX<=0||endX>=1||endY<=0||endY>=1)return guess;
   return {...guess,x:(guess.x+endX)/2,y:(guess.y+endY)/2,obscured:true,
     hiddenRange:{startX:guess.x,startY:guess.y,endX,endY}};
-}
-function fractionChanged(a:TemporalFrame,b:TemporalFrame):number {
-  if(a.width!==b.width||a.height!==b.height)return 1;
-  return delta(a,b).fraction;
 }
 export class TemporalDartTracker {
   private baseline:TemporalFrame|null=null;
@@ -231,10 +229,18 @@ export class TemporalDartTracker {
     if(!Number.isFinite(now)||now<=0)return null;
     if(!this.baseline){this.baseline=frame;this.prior=frame;this.baselineCount=recordedDarts;return null;}
     if(!this.prior){this.prior=frame;return null;}
-    const motion=fractionChanged(this.prior,frame);
+    if(this.prior.width!==frame.width||this.prior.height!==frame.height||
+       frame.data.length!==frame.width*frame.height*4){this.reset();return null;}
+    const moving=delta(this.prior,frame);
+    const motion=moving.fraction;
+    // Compression noise and minor flicker are often scattered across the
+    // board. A coherent moving component, not ten arbitrary pixels, is
+    // what should prevent a settled throw from being evaluated.
+    const coherentMotion=motion>0.008 || (motion>0.00015 &&
+      components(moving.bin,frame.width,frame.height).some(p=>p.length>=16));
     // Even a narrow new shaft changes much less than 1% of 256px pixels.
     // 1.2% incorrectly marked the actual arrival as a quiet frame.
-    this.quiet=motion<0.00015?this.quiet+1:0;
+    this.quiet=coherentMotion?0:this.quiet+1;
     this.prior=frame;
     if(this.quiet<2||now-this.lastDecision<500)return null;
     if(this.baseline.width!==frame.width||this.baseline.height!==frame.height||
@@ -250,9 +256,13 @@ export class TemporalDartTracker {
     if(diff>MAX_CHANGE_FRACTION)return null;
     const raw=detectFromDelta(this.baseline,change,accept);
     const guess=raw?{...extrapolateOccludedTip(raw,this.baseline,empty),recordedBefore:this.baselineCount}:null;
+    // A missed segmentation is NOT a new baseline. Keep the original
+    // pre-impact photo so subsequent settled frames can recover a weak shaft.
+    if(!guess){
+      if(recordedDarts!==this.baselineCount){this.baseline=frame;this.baselineCount=recordedDarts;}
+      return null;
+    }
     this.lastDecision=now;
-    // Advance only on a stable after-frame; each physical change is proposed
-    // once. The server never scores the raw suggestion automatically.
     this.baseline=frame;
     this.baselineCount=recordedDarts;
     return guess;
