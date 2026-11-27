@@ -147,7 +147,7 @@ def verify(root: Path) -> None:
         ),
         'Physical empty-board return is scoped to the same current visit': (
             'visualBoardReturn.current.startNextVisit()' in scorer
-            and 'visualBoardReturn.current.observe(image,ctx.dartsRecorded,now)' in scorer
+            and 'visualBoardReturn.current.observe(image,ctx.dartsRecorded,now,true)' in scorer
             and 'fastBoardClear.current.noteVisualClear(now)' in scorer
             and 'pendingRemovalWitness.current.replay(fastBoardClear.current,now)' in scorer
             and 'pendingRemovalWitness.current.reset()' in scorer
@@ -249,7 +249,7 @@ def verify(root: Path) -> None:
         ),
         'Automatic MISS scoring confined to physical circular board and double-to-rim': (
             'physicalBoardTipBatch(tips)' in scorer
-            and "import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physicalBoardMask, scorePhysicalDart }" in scorer
+            and "import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physicalBoardMask, scorePhysicalDart, OuterMissConfirmation }" in scorer
             and 'if(onBoard===null)return;' in scorer
             and 'strongNewPhysicalMiss(x,y,guess)' in scorer
             and "boardImpactRegion(point[0],point[1])!=='outside'" in scorer
@@ -259,12 +259,14 @@ def verify(root: Path) -> None:
               (root/'src/client/lib/physicalBoardImpact.ts').read_text(encoding='utf-8')
         ),
         'Release marker and visible version match': (
-            marker == 'dartline-v6.3.1-diagnostics-RC'
-            and 'DARTLINE v6.3.1 RC · NOT RELEASED' in hud
+            marker == 'dartline-v6.3.2-verified-reference-RC'
+            and 'DARTLINE v6.3.2 RC · NOT RELEASED' in hud
             and '<summary>Camera Diagnostics' in hud
             and 'No scorer trace received' in hud
             and 'Context ' in scorer
             and 'cameraTrace: [' in scorer
+            and 'visualBoardReturn.current.observeLocatedEmpty(' in scorer
+            and 'outerMissConfirmation.current.filter(' in scorer
         ),
     }
     failed = [name for name, success in checks.items() if not success]
