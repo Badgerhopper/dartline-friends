@@ -25,6 +25,10 @@ export interface TemporalGuess {
   confidence:number; // shape quality, not calibrated model probability
   length:number; area:number; changeFraction:number;
   obscured:boolean;
+  /** Unit direction from the flight toward the narrow front end. */
+  axis?:{x:number;y:number;ratio:number};
+  hiddenRange?:{startX:number;startY:number;endX:number;endY:number};
+  recordedBefore?:number;
 }
 function median(values:number[]):number {
   if(!values.length)return 0;
@@ -151,7 +155,8 @@ function fitShape(pts:number[],w:number,h:number,changeFraction:number):Temporal
     0.28 +Math.min(0.31,Math.log2(elongation)*0.095)
     +Math.min(0.23,Math.log2(ratio)*0.17)
     +Math.min(0.12,length/500));
-  return {x:px/w,y:py/h,confidence,length,area:n,changeFraction,obscured:ratio<1.5};
+  return {x:px/w,y:py/h,confidence,length,area:n,changeFraction,obscured:ratio<1.5,
+    axis:{x:nearTip?-ux:ux,y:nearTip?-uy:uy,ratio}};
 }
 /** Reject global motion and hands, prefer thin elongated new darts. */
 export function detectTemporalDart(before:TemporalFrame,after:TemporalFrame,
@@ -174,6 +179,42 @@ function detectFromDelta(before:TemporalFrame,d:ReturnType<typeof delta>,
   }
   return best;
 }
+/** Extend the shaft ONLY into a region already occupied before this throw.
+ * A broad flight identifies direction; the previous empty board distinguishes
+ * an existing dart from the printed wires. Do not guess an arbitrary length.
+ * The entire hidden interval remains available for uncertainty-aware scoring.
+ */
+export function extrapolateOccludedTip(guess:TemporalGuess,before:TemporalFrame,
+  empty:TemporalFrame|null):TemporalGuess {
+  const axis=guess.axis;
+  if(!empty||!axis||axis.ratio<1.6||guess.length<24||guess.confidence<.68||
+     empty.width!==before.width||empty.height!==before.height||
+     empty.data.length!==before.data.length)return guess;
+  const w=before.width,h=before.height;
+  const foreground=delta(empty,before);
+  if(foreground.fraction>.115)return guess;
+  const x=guess.x*w,y=guess.y*h;
+  const occupied=(d:number)=>{
+    for(let lateral=-1;lateral<=1;lateral++){
+      const xx=Math.round(x+axis.x*d-axis.y*lateral);
+      const yy=Math.round(y+axis.y*d+axis.x*lateral);
+      if(xx>=0&&xx<w&&yy>=0&&yy<h&&foreground.bin[yy*w+xx])return true;
+    }
+    return false;
+  };
+  let first=-1,last=-1;
+  for(let d=0;d<=24;d++){
+    if(occupied(d)){if(first<0)first=d;last=d;}
+    else if(first>=0&&d-last>=2)break;
+    else if(first<0&&d>=3)break;
+  }
+  if(first<0||first>3||last-first<1||last>=23)return guess;
+  const end=last+2;
+  const endX=(x+axis.x*end)/w,endY=(y+axis.y*end)/h;
+  if(endX<=0||endX>=1||endY<=0||endY>=1)return guess;
+  return {...guess,x:(guess.x+endX)/2,y:(guess.y+endY)/2,obscured:true,
+    hiddenRange:{startX:guess.x,startY:guess.y,endX,endY}};
+}
 function fractionChanged(a:TemporalFrame,b:TemporalFrame):number {
   if(a.width!==b.width||a.height!==b.height)return 1;
   return delta(a,b).fraction;
@@ -183,11 +224,12 @@ export class TemporalDartTracker {
   private prior:TemporalFrame|null=null;
   private quiet=0;
   private lastDecision=0;
-  reset():void {this.baseline=null;this.prior=null;this.quiet=0;this.lastDecision=0;}
+  private baselineCount=0;
+  reset():void {this.baseline=null;this.prior=null;this.quiet=0;this.lastDecision=0;this.baselineCount=0;}
   observe(frame:TemporalFrame,now:number,
-    accept?:(x:number,y:number)=>boolean):TemporalGuess|null {
+    accept?:(x:number,y:number)=>boolean,recordedDarts=0,empty:TemporalFrame|null=null):TemporalGuess|null {
     if(!Number.isFinite(now)||now<=0)return null;
-    if(!this.baseline){this.baseline=frame;this.prior=frame;return null;}
+    if(!this.baseline){this.baseline=frame;this.prior=frame;this.baselineCount=recordedDarts;return null;}
     if(!this.prior){this.prior=frame;return null;}
     const motion=fractionChanged(this.prior,frame);
     // Even a narrow new shaft changes much less than 1% of 256px pixels.
@@ -202,15 +244,17 @@ export class TemporalDartTracker {
     // may change fewer than 46 pixels when a nearby dart hides the rest.
     const change=delta(this.baseline,frame);
     const diff=change.fraction;
-    if(diff<0.00025)return null;
+    if(diff<0.00025){this.baselineCount=recordedDarts;return null;}
     // A hand covering much of the board is not a throw, and must not
     // become a new baseline. Wait until the hand exits.
     if(diff>MAX_CHANGE_FRACTION)return null;
-    const guess=detectFromDelta(this.baseline,change,accept);
+    const raw=detectFromDelta(this.baseline,change,accept);
+    const guess=raw?{...extrapolateOccludedTip(raw,this.baseline,empty),recordedBefore:this.baselineCount}:null;
     this.lastDecision=now;
     // Advance only on a stable after-frame; each physical change is proposed
     // once. The server never scores the raw suggestion automatically.
     this.baseline=frame;
+    this.baselineCount=recordedDarts;
     return guess;
   }
 }
