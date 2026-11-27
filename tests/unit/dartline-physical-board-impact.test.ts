@@ -1,10 +1,34 @@
 import {describe,it,expect} from 'vitest';
 import {BOARD_CENTER,BOARD_MAX} from '../../src/shared/boardGeometry';
 import {boardImpactRegion,PHYSICAL_BOARD_EDGE,PHYSICAL_DOUBLE_EDGE,
- strongNewPhysicalMiss,physicalBoardTipBatch} from '../../src/client/lib/physicalBoardImpact';
+ strongNewPhysicalMiss,physicalBoardTipBatch,scoreHiddenTip,physicalBoardMask} from '../../src/client/lib/physicalBoardImpact';
 const at=(r:number)=>[BOARD_CENTER+r,BOARD_CENTER] as const;
 const guess={confidence:0.77,length:37,area:43,
  obscured:false,changeFraction:0.003};
+describe('shaft extrapolation uncertainty',()=>{
+ const hidden={x:.5,y:.65,confidence:.88,length:40,area:80,changeFraction:.003,
+   obscured:true,axis:{x:0,y:1,ratio:2},hiddenRange:{startX:.5,startY:.646,endX:.5,endY:.654}};
+ const project=(x:number,y:number)=>[x*1000000,y*1000000];
+ it('automatically accepts only a bounded hidden interval inside one scoring bed',()=>{
+   expect(scoreHiddenTip(hidden,project)?.label).toBe('S20');
+ });
+ it('rejects an interval that crosses a triple wire, a sector wire or the physical rim',()=>{
+   const crossing={...hidden,y:.731,hiddenRange:{startX:.5,startY:.724,endX:.5,endY:.738}};
+   expect(scoreHiddenTip(crossing,project)).toBeNull();
+   expect(scoreHiddenTip(hidden,()=>[999999,999999])).toBeNull();
+ });
+ it('does not mistake an unbounded or weak shape for a confident estimate',()=>{
+   expect(scoreHiddenTip({...hidden,confidence:.60},project)).toBeNull();
+   expect(scoreHiddenTip({...hidden,hiddenRange:undefined},project)).toBeNull();
+   expect(scoreHiddenTip({...hidden,hiddenRange:{startX:.5,startY:.60,endX:.5,endY:.70}},project)).toBeNull();
+ });
+ it('maps the board region rather than assuming the image square is the board',()=>{
+   const mask=physicalBoardMask(project,16);
+   expect(mask[0]).toBe(0);
+   expect(mask[8*16+8]).toBe(1);
+   expect(mask[15*16+15]).toBe(0);
+ });
+});
 describe('circular physical-board-only automatic miss zone',()=>{
  it('uses the double wire to physical edge, never a square crop or wall',()=>{
    expect(boardImpactRegion(...at(PHYSICAL_DOUBLE_EDGE-1))).toBe('score');
