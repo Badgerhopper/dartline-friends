@@ -80,7 +80,7 @@ export function scoreHiddenTip(
   guess:TemporalGuess,project:(x:number,y:number)=>readonly number[]|null
 ):{x:number;y:number;label:string}|null {
   const range=guess.hiddenRange,axis=guess.axis;
-  if(!range||!axis||guess.confidence<.75||guess.length<30)return null;
+  if(!range||!axis||guess.confidence<.67||guess.length<20)return null;
   const mid=project(guess.x,guess.y);
   if(!mid||boardImpactRegion(mid[0],mid[1])==='outside')return null;
   const x=Math.round(mid[0]),y=Math.round(mid[1]);
@@ -93,8 +93,27 @@ export function scoreHiddenTip(
     const py=range.startY+(range.endY-range.startY)*t+axis.x*lateral/256;
     const p=project(px,py);
     if(!p||boardImpactRegion(p[0],p[1])==='outside'||
-      Math.hypot(p[0]-x,p[1]-y)>12000||
+      Math.hypot(p[0]-x,p[1]-y)>24000||
       scoreFromBoardCoords(Math.round(p[0]),Math.round(p[1])).label!==label)return null;
   }
   return {x,y,label};
+}
+
+/** Model-independent physical hit. A known newly arrived shaft can be
+ * scored even when the network supplies no tip. Ring boundaries remain
+ * editable estimates; the physical rim is a hard limit. */
+export function scorePhysicalDart(guess:TemporalGuess,
+  project:(x:number,y:number)=>readonly number[]|null):{x:number;y:number;label:string}|null {
+  const hidden=scoreHiddenTip(guess,project);
+  if(hidden)return hidden;
+  if(guess.confidence<.67||guess.length<20||guess.area<20||
+     guess.changeFraction<=0||guess.changeFraction>.045||!guess.axis||guess.axis.ratio<1.35)return null;
+  const p=project(guess.x,guess.y);
+  if(!p||boardImpactRegion(p[0],p[1])==='outside')return null;
+  // The player explicitly wants the best estimate rather than a missing
+  // slot. For hidden tips the midpoint of the inferred occlusion interval
+  // is an estimate, never a claim of exact position. For a visible front
+  // end use that endpoint, including just outside the double wire.
+  const x=Math.round(p[0]),y=Math.round(p[1]);
+  return {x,y,label:scoreFromBoardCoords(x,y).label};
 }
