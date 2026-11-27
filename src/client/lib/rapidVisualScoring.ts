@@ -14,7 +14,7 @@ export const VISUAL_DUPLICATE_MAX_CHANGED=0.0007;
 export const VISUAL_DUPLICATE_RETRY_MS=2400;
 export const VISUAL_DUPLICATE_TIP_RADIUS=14500;
 export const RAPID_RECOVERY_POLL_MS=125;
-export const RAPID_RECOVERY_FAST_GAP_MS=800; // match IdleTipRecovery's independent-sample gate
+export const RAPID_RECOVERY_FAST_GAP_MS=550; // match IdleTipRecovery's independent-sample gate
 export const RAPID_RECOVERY_NORMAL_GAP_MS=950;
 export const RAPID_RECOVERY_HINT_LIFETIME_MS=3800;
 
@@ -108,10 +108,10 @@ export class RapidVisualRecovery {
   reset():void {
     this.lastCompleted=0;this.fastRemaining=0;this.lastHint=0;
   }
-  newPhysicalDart(now:number):void {
+  newPhysicalDart(now:number,uncertain=false):void {
     if(!Number.isFinite(now)||now<=0)return;
     if(this.lastHint && now-this.lastHint<400)return;
-    this.lastHint=now;this.fastRemaining=2;
+    this.lastHint=now;this.fastRemaining=uncertain?3:2;
   }
   shouldProbe(now:number,eligible:boolean):boolean {
     if(!eligible||!Number.isFinite(now)||now<=0)return false;
