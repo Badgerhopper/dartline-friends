@@ -1,4 +1,5 @@
 import type { BoardTip } from '../../shared/vision/types';
+import { boardImpactRegion } from './physicalBoardImpact';
 
 /**
  * Recover a missed throw even when motion gating saw no impact. Background
@@ -15,7 +16,7 @@ export const IDLE_RECOVERY_MAX_GAP_MS = 7500;
 export const IDLE_RECOVERY_MATCH_RADIUS = 14500; // 6.54mm board plane
 export const IDLE_RECOVERY_MIN_CONFIDENCE = 0.50;
 export const IDLE_RECOVERY_STRONG_CONFIDENCE = 0.80;
-const DOUBLE_OUTER_RADIUS = 170 * (1_000_000 / 451);
+export const IDLE_RECOVERY_OUTER_MISS_CONFIDENCE = 0.85;
 
 type Candidate = {
   observations: BoardTip[];
@@ -32,10 +33,11 @@ function valid(tip: BoardTip): boolean {
     tip.x >= 0 && tip.x <= 1_000_000 &&
     tip.y >= 0 && tip.y <= 1_000_000 &&
     tip.confidence >= IDLE_RECOVERY_MIN_CONFIDENCE &&
-    // The old continuous scan hallucinated "MISS" outside the scoring area.
-    // Keep physical misses editable manually until external board-tip samples
-    // show those predictions are reliable enough to register automatically.
-    Math.hypot(tip.x - 500000, tip.y - 500000) <= DOUBLE_OUTER_RADIUS;
+    // Scan to the physical rim, not beyond. Require higher-confidence
+    // independently repeated model tips for the no-score outer annulus.
+    boardImpactRegion(tip.x,tip.y)!=='outside' &&
+    (boardImpactRegion(tip.x,tip.y)!=='miss' ||
+       tip.confidence >= IDLE_RECOVERY_OUTER_MISS_CONFIDENCE);
 }
 
 function median(values: number[]): number {
