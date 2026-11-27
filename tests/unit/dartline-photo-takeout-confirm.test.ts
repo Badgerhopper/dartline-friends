@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {PhotoTakeoutConfirm,PHOTO_CLEAR_CONFIRM_SPACING_MS,
- PHOTO_CLEAR_RETRY_MS,PHOTO_CLEAR_INTERRUPTED_WAIT_MS,PHOTO_CLEAR_MAX_PAIRS} from '../../src/client/lib/photoTakeoutConfirm';
+ PHOTO_CLEAR_RETRY_MS,PHOTO_CLEAR_INTERRUPTED_WAIT_MS,PHOTO_CLEAR_MAX_PAIRS,PHOTO_CLEAR_PAIR_MAX_GAP_MS} from '../../src/client/lib/photoTakeoutConfirm';
 import {VerifiedBoardClear} from '../../src/server/scoring/verifiedBoardClear';
 
 describe('release-blocking physical takeout state machine',()=>{
@@ -21,8 +21,26 @@ describe('release-blocking physical takeout state machine',()=>{
     for(const time of [2400,5000,9200,20000])
       expect(gate.claim('v',time,true,true,12)).toBe(false);
     expect(gate.pairsSent).toBe(0);
+    // Long camera suspension breaks the old pair. The first new decoded
+    // frame starts a NEW sequence, not the second half of an old one.
     expect(gate.claim('v',20500,true,true,13)).toBe(true);
+    expect(gate.pairsSent).toBe(0);
+    expect(gate.claim('v',21450,true,true,14)).toBe(true);
     expect(gate.pairsSent).toBe(1);
+  });
+
+  it('two clear photos too far apart never form one stale client pair',()=>{
+    const gate=new PhotoTakeoutConfirm(),server=new VerifiedBoardClear();
+    expect(gate.claim('v',1000,true,true,1)).toBe(true);
+    expect(server.observe(true,3,1000)).toBe(false);
+    expect(gate.claim('v',1000+PHOTO_CLEAR_PAIR_MAX_GAP_MS+1,true,true,2)).toBe(false);
+    expect(gate.waitingForSecond).toBe(false);
+    // The old server first vote is expired by the time the new one starts.
+    const start=1000+PHOTO_CLEAR_INTERRUPTED_WAIT_MS;
+    expect(gate.claim('v',start,true,true,3)).toBe(true);
+    expect(server.observe(true,3,start)).toBe(false);
+    expect(gate.claim('v',start+950,true,true,4)).toBe(true);
+    expect(server.observe(true,3,start+950)).toBe(true);
   });
 
   it('an occupied/occluded photo between votes invalidates the partial pair',()=>{
