@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {BOARD_CENTER,BOARD_MAX} from '../../src/shared/boardGeometry';
 import {boardImpactRegion,PHYSICAL_BOARD_EDGE,PHYSICAL_DOUBLE_EDGE,
- strongNewPhysicalMiss,physicalBoardTipBatch,scoreHiddenTip,physicalBoardMask,scorePhysicalDart} from '../../src/client/lib/physicalBoardImpact';
+ strongNewPhysicalMiss,physicalBoardTipBatch,scoreHiddenTip,physicalBoardMask,scorePhysicalDart,OuterMissConfirmation} from '../../src/client/lib/physicalBoardImpact';
 const at=(r:number)=>[BOARD_CENTER+r,BOARD_CENTER] as const;
 const guess={confidence:0.77,length:37,area:43,
  obscured:false,changeFraction:0.003};
@@ -45,6 +45,22 @@ describe('physical fallback when the neural network returns no tip',()=>{
  it('gives an editable best estimate for a physically witnessed occlusion',()=>{
    const g={...shaft,obscured:true,y:.73,hiddenRange:{startX:.5,startY:.70,endX:.5,endY:.76}};
    expect(scorePhysicalDart(g,project)).not.toBeNull();
+ });
+});
+describe('raw outer MISS confirmation',()=>{
+ const miss={x:900000,y:500000,confidence:.92};
+ const hit={x:760000,y:550000,confidence:.93};
+ it('never scores a transient false miss or turns it into an empty report',()=>{
+   const gate=new OuterMissConfirmation(),first={};
+   expect(gate.filter([miss],'visit',first,1000)).toBeNull();
+   expect(gate.filter([miss],'visit',first,1400)).toBeNull();
+   expect(gate.filter([hit],'visit',{},1600)).toEqual([hit]);
+ });
+ it('allows a repeatedly detected real outer-ring hit and retains ordinary hits',()=>{
+   const gate=new OuterMissConfirmation();
+   expect(gate.filter([hit,miss],'visit',{},1000)).toEqual([hit]);
+   expect(gate.filter([hit,miss],'visit',{},1400)).toEqual([hit,miss]);
+   expect(gate.filter([miss],'next',{},1800)).toBeNull();
  });
 });
 describe('circular physical-board-only automatic miss zone',()=>{
