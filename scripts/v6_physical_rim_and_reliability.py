@@ -231,7 +231,11 @@ import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence
                 vision.settings.boardThreshold,Math.min(vision.settings.tipThreshold,RELAXED_TIP_THRESHOLD),
                 runtime.lensCalibration):null;
               const empty=Boolean(relaxed&&!relaxed.tips.some(t=>boardImpactRegion(t.x,t.y)!=='outside'));
-              visualBoardReturn.current.observeLocatedEmpty(completed.temporalPhoto??null,empty,now);
+              if(visualBoardReturn.current.observeLocatedEmpty(completed.temporalPhoto??null,empty,now)){
+                const reference=visualBoardReturn.current.emptyReference;
+                if(reference)temporalDartTracker.current.prime(reference);
+                trace('Empty board reference acquired from located AI frames');
+              }
             }
           } else if(ctx.dartsRecorded===0){
             visualBoardReturn.current.observeLocatedEmpty(null,false,now);
@@ -347,7 +351,9 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
           ' | active '+visitContext.current.active+
           ' | count '+visitContext.current.dartsRecorded,
         'Takeout armed '+takeoutExclusive.current+
-          ' | photo votes '+photoTakeoutConfirm.current.reportsSent,
+          ' | photo votes '+photoTakeoutConfirm.current.reportsSent+
+          ' | model votes '+fastBoardClear.current.emptyReportsSent+
+          ' | retrieval witness '+fastBoardClear.current.hasRetrievalWitness,
         'Board pose '+(lastLocatedAt.current?Math.round((Date.now()-lastLocatedAt.current)/1000)+'s old':'missing')+
           ' | empty reference '+visualBoardReturn.current.hasEmptyReference,
         ...cameraTrace.current.slice(-15)
