@@ -105,6 +105,19 @@ describe('physical empty-board return evidence does not depend on AI or hand mot
    expect(gate.observe(empty,3,3600)).toBe(false);
    expect(gate.observe(empty,3,4300)).toBe(true);
  });
+ it('retains a verified empty reference for a fast next visit, but not after a camera reset',()=>{
+   const gate=new VisualBoardReturn(),empty=frame(),full=addDart(empty);
+   gate.observe(empty,0,1000);gate.observe(empty,0,1300);
+   gate.observe(full,3,1800);gate.observe(empty,3,2400);
+   expect(gate.observe(empty,3,3150)).toBe(true);
+   gate.startNextVisit();
+   expect(gate.hasEmptyReference).toBe(true);
+   gate.observe(full,0,3400);gate.observe(full,1,3700);
+   gate.observe(full,3,4000);gate.observe(empty,3,4600);
+   expect(gate.observe(empty,3,5300)).toBe(true);
+   gate.reset();
+   expect(gate.hasEmptyReference).toBe(false);
+ });
  it('will not submit merely because the model predicted an empty board',()=>{
    const gate=new VisualBoardReturn(),empty=frame();
    gate.observe(empty,0,1000);gate.observe(empty,0,1300);
