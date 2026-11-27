@@ -122,7 +122,7 @@ export class VisualBoardReturn {
     // A physically witnessed, model-confirmed takeout may have completed
     // the very first round before initial calibration was possible.
     // Promote its image only at the authoritative visit boundary.
-    if(this.votedEmpty)this.empty=this.votedEmpty;
+    if(!this.empty&&this.votedEmpty)this.empty=this.votedEmpty;
     this.occupiedPhoto=null;this.removalCandidate=null;this.removalCandidateAt=0;
     this.verifiedReturn=null;this.votedEmpty=null;
     if(!this.empty){this.prior=null;this.occupied=false;this.quietSince=0;
@@ -174,7 +174,7 @@ export class VisualBoardReturn {
     count:number,now:number):boolean {
     if(kind==='unlocated'||!frame||frame.width!==256||frame.height!==256||
        frame.data.length!==256*256*4||!Number.isFinite(now)||count<1||count>3){
-      this.removalCandidate=null;this.removalCandidateAt=0;this.verifiedReturn=null;
+      this.removalCandidate=null;this.removalCandidateAt=0;this.verifiedReturn=null;this.votedEmpty=null;
       return false;
     }
     if(kind==='occupied'){
@@ -201,9 +201,22 @@ export class VisualBoardReturn {
     }
     this.removalCandidate=frame;this.removalCandidateAt=now;return false;
   }
-  /** Called only when a verified empty report is actually published. */
-  rememberVotedEmpty():void {
-    if(this.verifiedReturn)this.votedEmpty=this.verifiedReturn;
+  /** Called only AFTER the second independent verified model report.
+   * Both the existing retrieval witness and the new disappearance witness
+   * can establish the first reference. Never refresh an existing reference
+   * based on model emptiness alone. */
+  rememberVotedEmpty(frame:TemporalFrame|null):void {
+    if(!this.empty&&frame&&frame.width===256&&frame.height===256&&
+       frame.data.length===256*256*4)this.votedEmpty=this.verifiedReturn??frame;
+  }
+  /** A located empty model frame followed by a distinct, stable decoded
+   * video frame is enough for initial calibration, without waiting for
+   * another expensive inference. Not an auto-submit proof by itself. */
+  finishInitialReference(frame:TemporalFrame,now:number):boolean {
+    if(this.empty||!this.emptyScan||now-this.emptyScanAt<300||
+       now-this.emptyScanAt>1800||frame.width!==256||frame.height!==256)return false;
+    if(difference(this.emptyScan,frame,this.roi)>BOARD_RETURN_MAX_EMPTY_CHANGED)return false;
+    this.empty=frame;this.emptyScan=null;this.emptyScanAt=0;return true;
   }
   observe(frame:TemporalFrame,recordedDarts:number,now:number,requireLocatedReference=false):boolean {
     if(!Number.isFinite(now)||now<=0 ||
