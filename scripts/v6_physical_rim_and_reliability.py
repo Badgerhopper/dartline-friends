@@ -98,6 +98,18 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
       // darts; the independent low confidence guess remains manual.
       if(strongNewPhysicalMiss(x,y,guess)){""")
 
+    # Takeout checks must exclude the very wall-mounted spares that scoring
+    # filters out. Previously a spare outside the board could permanently
+    # veto every empty-board inference, even when no playing darts remained.
+    patch(scorer,
+      "        const action=fastBoardClear.current.finish(token, Date.now(),\n          relaxed.tips.length ? 'occupied' : 'empty');",
+      """        const onBoardTips=relaxed.tips.filter(t=>boardImpactRegion(t.x,t.y)!=='outside');
+        const action=fastBoardClear.current.finish(token, Date.now(),
+          onBoardTips.length ? 'occupied' : 'empty');""")
+    patch(scorer,
+      'try { latestOnTips.current(relaxed.tips,Math.round(frame.ms)); }',
+      'try { latestOnTips.current(onBoardTips,Math.round(frame.ms)); }')
+
     # Geometry-qualified occlusion candidates go through a dedicated,
     # atomic server count/visit check rather than guessing another raw AI tip.
     patch(scorer,
@@ -126,10 +138,10 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
       '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.startNextVisit();\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
     patch(scorer,
       '  const lastLocatedPhotoFrame = useRef<unknown>(null);',
-      '  const lastLocatedPhotoFrame = useRef<unknown>(null);\\n  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);')
+      '  const lastLocatedPhotoFrame = useRef<unknown>(null);\n  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);')
     patch(scorer,
       '        lastLocatedPhotoFrame.current=vision.frameRef.current;',
-      '        lastLocatedPhotoFrame.current=vision.frameRef.current;\\n        lastGoodPose.current=null;\\n        temporalDartTracker.current.reset();')
+      '        lastLocatedPhotoFrame.current=vision.frameRef.current;\n        lastGoodPose.current=null;\n        temporalDartTracker.current.reset();')
     # Install the calibrated physical-board region once per visit, not once
     # per camera frame. Takeout still requires the occupied/empty sequence.
     patch(scorer,
