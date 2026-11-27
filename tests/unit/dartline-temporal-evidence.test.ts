@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {detectTemporalDart,TemporalDartTracker,type TemporalFrame} from '../../src/client/lib/temporalDartEvidence';
+import {detectTemporalDart,TemporalDartTracker,extrapolateOccludedTip,type TemporalFrame,type TemporalGuess} from '../../src/client/lib/temporalDartEvidence';
 const W=256,H=256;
 function blank(value=90):TemporalFrame {
   const data=new Uint8Array(W*H*4);
@@ -97,6 +97,18 @@ describe('on-phone temporal shaft detector, independent of neural network',()=>{
    expect(recovered).not.toBeNull();
    expect(recovered!.obscured).toBe(true);
    expect(tracker.observe(b,1960)).toBeNull();
+ });
+ it('extends the visible front end into the previous dart silhouette only',()=>{
+   const empty=blank(),before=blank();
+   for(let y=98;y<=102;y++)for(let x=75;x<=79;x++)dot(before,x,y,0);
+   const shaft:TemporalGuess={x:80/W,y:100/H,axis:{x:-1,y:0,ratio:2.5},
+     confidence:.88,length:45,area:80,changeFraction:.003,obscured:false};
+   const hidden=extrapolateOccludedTip(shaft,before,empty);
+   expect(hidden.obscured).toBe(true);
+   expect(hidden.x).toBeLessThan(shaft.x);
+   expect(hidden.hiddenRange).toBeDefined();
+   expect(extrapolateOccludedTip(shaft,empty,empty)).toEqual(shaft);
+   expect(extrapolateOccludedTip({...shaft,axis:{x:1,y:0,ratio:2.5}},before,empty).hiddenRange).toBeUndefined();
  });
  it('tracks a second dart partially overlapping an earlier shaft',()=>{
    const tracker=new TemporalDartTracker();const a=blank(),b=blank();
