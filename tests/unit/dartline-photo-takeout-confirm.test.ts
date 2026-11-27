@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {PhotoTakeoutConfirm,PHOTO_CLEAR_CONFIRM_SPACING_MS,
- PHOTO_CLEAR_RETRY_MS} from '../../src/client/lib/photoTakeoutConfirm';
+ PHOTO_CLEAR_RETRY_MS,PHOTO_CLEAR_INTERRUPTED_WAIT_MS,PHOTO_CLEAR_MAX_PAIRS} from '../../src/client/lib/photoTakeoutConfirm';
 import {VerifiedBoardClear} from '../../src/server/scoring/verifiedBoardClear';
 
 describe('release-blocking physical takeout state machine',()=>{
@@ -30,12 +30,17 @@ describe('release-blocking physical takeout state machine',()=>{
     expect(gate.claim('v',1500,true,true,1)).toBe(true);
     expect(server.observe(true,3,1500)).toBe(false);
     expect(gate.claim('v',2000,false,true,2)).toBe(false);
-    // The server may still have its first empty vote; on a real occupied
-    // sample the fallback verifier must report that to server to cancel it.
+    // The first empty vote is STILL on the server. Do not combine it with
+    // the beginning of a new photo sequence after an interruption.
     expect(gate.waitingForSecond).toBe(false);
-    expect(gate.claim('v',2700,true,true,3)).toBe(true);
+    expect(gate.claim('v',2700,true,true,3)).toBe(false);
     expect(gate.pairsSent).toBe(0);
-    expect(gate.claim('v',3650,true,true,4)).toBe(true);
+    const restartAt=1500+PHOTO_CLEAR_INTERRUPTED_WAIT_MS;
+    expect(gate.claim('v',restartAt,true,true,4)).toBe(true);
+    // The server discards the first vote because it has aged out.
+    expect(server.observe(true,3,restartAt)).toBe(false);
+    expect(gate.claim('v',restartAt+PHOTO_CLEAR_CONFIRM_SPACING_MS,true,true,5)).toBe(true);
+    expect(server.observe(true,3,restartAt+PHOTO_CLEAR_CONFIRM_SPACING_MS)).toBe(true);
     expect(gate.pairsSent).toBe(1);
   });
 
@@ -44,10 +49,11 @@ describe('release-blocking physical takeout state machine',()=>{
     expect(gate.claim('v',1500,true,true,1)).toBe(true);
     expect(gate.claim('v',2400,true,false,2)).toBe(false);
     expect(gate.waitingForSecond).toBe(false);
-    expect(gate.claim('v',3400,true,true,3)).toBe(true);
+    expect(gate.claim('v',3400,true,true,3)).toBe(false);
     expect(gate.claim('v',4300,true,true,null)).toBe(false);
-    expect(gate.claim('v',5500,true,true,4)).toBe(true);
-    expect(gate.pairsSent).toBe(0);
+    expect(gate.claim('v',6200,true,true,4)).toBe(true);
+    expect(gate.claim('v',7100,true,true,5)).toBe(true);
+    expect(gate.pairsSent).toBe(1);
   });
 
   it('duplicates or reverse frame IDs are rejected',()=>{
@@ -60,13 +66,29 @@ describe('release-blocking physical takeout state machine',()=>{
 
   it('retries lost server acknowledgements four times, then yields to AI fallback',()=>{
     const gate=new PhotoTakeoutConfirm();
-    for(let pair=0;pair<4;pair++){
+    for(let pair=0;pair<PHOTO_CLEAR_MAX_PAIRS;pair++){
       const at=1000+pair*(PHOTO_CLEAR_CONFIRM_SPACING_MS+PHOTO_CLEAR_RETRY_MS+50);
       expect(gate.claim('v',at,true,true,2*pair+1)).toBe(true);
       expect(gate.claim('v',at+PHOTO_CLEAR_CONFIRM_SPACING_MS,true,true,2*pair+2)).toBe(true);
     }
     expect(gate.hasBudget).toBe(false);
     expect(gate.claim('v',30000,true,true,20)).toBe(false);
+  });
+
+  it('stale server vote cannot be combined with a different interrupted photo sequence',()=>{
+    const gate=new PhotoTakeoutConfirm(),server=new VerifiedBoardClear();
+    expect(gate.claim('r',1000,true,true,1)).toBe(true);
+    expect(server.observe(true,3,1000)).toBe(false);
+    gate.invalidate('r',1200);
+    for(const t of [1950,3000,4500,5600]){
+      expect(gate.claim('r',t,true,true,t)).toBe(false);
+    }
+    const fresh=1000+PHOTO_CLEAR_INTERRUPTED_WAIT_MS;
+    expect(gate.claim('r',fresh,true,true,5700)).toBe(true);
+    expect(server.observe(true,3,fresh)).toBe(false);
+    expect(server.confirmations).toBe(1);
+    expect(gate.claim('r',fresh+900,true,true,6600)).toBe(true);
+    expect(server.observe(true,3,fresh+900)).toBe(true);
   });
 
   it('resets all cached proof on actual visit ownership change',()=>{
