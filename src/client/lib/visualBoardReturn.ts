@@ -35,16 +35,39 @@ function difference(a:TemporalFrame,b:TemporalFrame):number {
   // the evidence of a FULL-frame obstruction.
   if(Math.max(Math.abs(ro),Math.abs(go),Math.abs(bo))>45) return 1;
   let changed=0,total=0;
+  const mask=new Uint8Array(n);
   for(let i=0;i<n;i+=SAMPLE_STEP){
     const k=i*4;
     const d=Math.max(
       Math.abs(b.data[k]-a.data[k]-ro),
       Math.abs(b.data[k+1]-a.data[k+1]-go),
       Math.abs(b.data[k+2]-a.data[k+2]-bo));
-    if(d>PIXEL_CHANGE)changed++;
+    if(d>PIXEL_CHANGE){changed++;mask[i]=1;}
     total++;
   }
-  return total?changed/total:1;
+  if(!total)return 1;
+  // A real camera has scattered compression/sensor speckles. The old
+  // comparison rejected an otherwise identical 256px board after only
+  // 43 noisy pixels. Ignore isolated speckles ONLY in a low-change scene;
+  // preserve connected changes (including thin shafts) as occupied evidence.
+  if(changed/total>0.003 || !changed)return changed/total;
+  let coherent=0;
+  const w=a.width,h=a.height;
+  for(let i=0;i<n;i++){
+    if(!mask[i])continue;
+    const x=i%w,y=Math.floor(i/w);
+    let neighbor=false;
+    for(let dy=-1;dy<=1&&!neighbor;dy++)for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dy)continue;
+      const xx=x+dx,yy=y+dy;
+      if(xx>=0&&xx<w&&yy>=0&&yy<h&&mask[yy*w+xx]){neighbor=true;break;}
+    }
+    if(neighbor)coherent++;
+  }
+  // Even a partly hidden dart can leave fewer than 43 changed pixels.
+  // A coherent set of >=12 is not safe empty-board proof.
+  if(coherent>=12)return Math.max(changed/total,BOARD_RETURN_MIN_CHANGED);
+  return coherent/total;
 }
 export class VisualBoardReturn {
   private empty:TemporalFrame|null=null;
