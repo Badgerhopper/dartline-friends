@@ -96,11 +96,10 @@ export class VisualBoardReturn {
   private occupied=false;
   private quietSince=0;
   private confirmed=false;
-  private trustedEmpty=false;
   private lastComparison=1;
   reset():void {
     this.roi=null;this.empty=null;this.prior=null;this.occupied=false;
-    this.quietSince=0;this.confirmed=false;this.trustedEmpty=false;
+    this.quietSince=0;this.confirmed=false;this.lastComparison=1;
   }
   startNextVisit():void {
     // Keep a genuinely verified empty reference on the same camera.
@@ -157,7 +156,7 @@ export class VisualBoardReturn {
     // A single blank, blurred or exposure-shifted frame cannot end a turn.
     if(this.quietSince===0){this.quietSince=now;return false;}
     if(now-this.quietSince>=BOARD_RETURN_MIN_HOLD_MS){
-      this.confirmed=true;this.trustedEmpty=true;return true;
+      this.confirmed=true;return true;
     }
     return false;
   }
