@@ -1,4 +1,4 @@
-import type { TemporalFrame } from './temporalDartEvidence';
+import { detectTemporalDart, type TemporalFrame } from './temporalDartEvidence';
 
 /** Independent, local physical evidence that the dartboard returned to its
  * pre-throw appearance. Does not depend on AI seeing the dart tip or on a
@@ -99,9 +99,19 @@ export class VisualBoardReturn {
   private lastComparison=1;
   private emptyScanAt=0;
   private emptyScan:TemporalFrame|null=null;
+  // Keep an actually observed occupied image independently of whether
+  // initial empty calibration succeeded. Two located zero-tip scans must
+  // corroborate a stable changed scene before it can witness retrieval.
+  private occupiedPhoto:TemporalFrame|null=null;
+  private removalCandidate:TemporalFrame|null=null;
+  private removalCandidateAt=0;
+  private verifiedReturn:TemporalFrame|null=null;
+  private votedEmpty:TemporalFrame|null=null;
   reset():void {
     this.roi=null;this.empty=null;this.prior=null;this.occupied=false;
     this.quietSince=0;this.confirmed=false;this.lastComparison=1;this.emptyScanAt=0;this.emptyScan=null;
+    this.occupiedPhoto=null;this.removalCandidate=null;this.removalCandidateAt=0;
+    this.verifiedReturn=null;this.votedEmpty=null;
   }
   startNextVisit():void {
     // Keep a genuinely verified empty reference on the same camera.
@@ -109,7 +119,14 @@ export class VisualBoardReturn {
     // Preserve the initial reference even when the player manually
     // submitted the preceding turn. It is the same fixed physical board;
     // a failed auto-submit must not poison the reference for every later turn.
-    if(!this.empty){this.reset();return;}
+    // A physically witnessed, model-confirmed takeout may have completed
+    // the very first round before initial calibration was possible.
+    // Promote its image only at the authoritative visit boundary.
+    if(this.votedEmpty)this.empty=this.votedEmpty;
+    this.occupiedPhoto=null;this.removalCandidate=null;this.removalCandidateAt=0;
+    this.verifiedReturn=null;this.votedEmpty=null;
+    if(!this.empty){this.prior=null;this.occupied=false;this.quietSince=0;
+      this.confirmed=false;this.emptyScanAt=0;this.emptyScan=null;return;}
     this.prior=null;this.occupied=false;this.quietSince=0;this.confirmed=false;
     this.emptyScanAt=0;this.emptyScan=null;
   }
@@ -149,6 +166,44 @@ export class VisualBoardReturn {
       this.emptyScan=frame;this.emptyScanAt=now;
     }
     return false;
+  }
+  /** Independent model snapshots, rather than a hand crossing a particular
+   * motion grid. Occupied evidence is retained across arming at dart three.
+   * A stationary blind model cannot pass the changed-scene requirement. */
+  observeRemovalScan(frame:TemporalFrame|null,kind:'occupied'|'empty'|'unlocated',
+    count:number,now:number):boolean {
+    if(kind==='unlocated'||!frame||frame.width!==256||frame.height!==256||
+       frame.data.length!==256*256*4||!Number.isFinite(now)||count<1||count>3){
+      this.removalCandidate=null;this.removalCandidateAt=0;this.verifiedReturn=null;
+      return false;
+    }
+    if(kind==='occupied'){
+      this.occupiedPhoto=frame;this.removalCandidate=null;
+      this.removalCandidateAt=0;this.verifiedReturn=null;this.votedEmpty=null;
+      return false;
+    }
+    if(count!==3||!this.occupiedPhoto)return false;
+    const changed=difference(this.occupiedPhoto,frame,this.roi);
+    // A moved/covered camera or an unchanged occupied board is not removal.
+    if(changed<BOARD_RETURN_MIN_CHANGED||changed>=0.14){
+      this.removalCandidate=null;this.removalCandidateAt=0;this.verifiedReturn=null;return false;
+    }
+    // Require disappearance of a previously visible elongated object,
+    // not just a change in lighting or a hand passing through.
+    if(!detectTemporalDart(frame,this.occupiedPhoto)){
+      this.removalCandidate=null;this.removalCandidateAt=0;this.verifiedReturn=null;return false;
+    }
+    if(this.removalCandidate && now-this.removalCandidateAt>=250 &&
+       now-this.removalCandidateAt<=3000 &&
+       difference(this.removalCandidate,frame,this.roi)<=0.008){
+      this.verifiedReturn=frame;
+      return true;
+    }
+    this.removalCandidate=frame;this.removalCandidateAt=now;return false;
+  }
+  /** Called only when a verified empty report is actually published. */
+  rememberVotedEmpty():void {
+    if(this.verifiedReturn)this.votedEmpty=this.verifiedReturn;
   }
   observe(frame:TemporalFrame,recordedDarts:number,now:number,requireLocatedReference=false):boolean {
     if(!Number.isFinite(now)||now<=0 ||
