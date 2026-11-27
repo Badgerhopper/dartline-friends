@@ -11,7 +11,7 @@ import { boardImpactRegion } from './physicalBoardImpact';
  * to score every pixel the model calls a tip.
  */
 export const IDLE_RECOVERY_INTERVAL_MS = 2200;
-export const IDLE_RECOVERY_MIN_SEPARATION_MS = 800;
+export const IDLE_RECOVERY_MIN_SEPARATION_MS = 550;
 export const IDLE_RECOVERY_MAX_GAP_MS = 7500;
 export const IDLE_RECOVERY_MATCH_RADIUS = 14500; // 6.54mm board plane
 export const IDLE_RECOVERY_MIN_CONFIDENCE = 0.50;
