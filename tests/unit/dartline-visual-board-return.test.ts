@@ -165,6 +165,27 @@ describe('physical empty-board return evidence does not depend on AI or hand mot
    gate.observe(full,3,1800);gate.observe(noise,3,2400);
    expect(gate.observe(noise,3,3150)).toBe(true);
  });
+ it('bootstraps reference from two distinct located empty scans when raw frame matching never settles',()=>{
+   const gate=new VisualBoardReturn(),clear=frame(),slightlyDifferent=frame();
+   for(let y=50;y<70;y++)for(let x=100;x<110;x++)slightlyDifferent.data[(y*SIZE+x)*4]=150;
+   gate.observe(clear,0,1000,true);
+   gate.observe(slightlyDifferent,0,1300,true);
+   expect(gate.hasEmptyReference).toBe(false);
+   expect(gate.observeLocatedEmpty(clear,true,1400)).toBe(false);
+   expect(gate.observeLocatedEmpty(slightlyDifferent,true,1750)).toBe(true);
+   expect(gate.hasEmptyReference).toBe(true);
+   gate.observe(addDart(slightlyDifferent),3,2200,true);
+   gate.observe(slightlyDifferent,3,2700,true);
+   expect(gate.observe(slightlyDifferent,3,3400,true)).toBe(true);
+ });
+ it('rejects an intervening positive or unlocated model scan before acquiring the reference',()=>{
+   const gate=new VisualBoardReturn(),clear=frame();
+   gate.observeLocatedEmpty(clear,true,1000);
+   gate.observeLocatedEmpty(null,false,1300);
+   expect(gate.observeLocatedEmpty(clear,true,1600)).toBe(false);
+   expect(gate.observeLocatedEmpty(clear,true,1700)).toBe(false);
+   expect(gate.observeLocatedEmpty(clear,true,2000)).toBe(true);
+ });
  it('recognizes a colored dart with unchanged mean brightness and detects its removal',()=>{
    const gate=new VisualBoardReturn(),empty=frame(),full=frame();
    for(let y=40;y<180;y++)for(let x=100;x<104;x++){
