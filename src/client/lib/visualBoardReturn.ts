@@ -15,7 +15,7 @@ function median(a:number[]):number {
   a.sort((x,y)=>x-y);
   return a[a.length>>1]||0;
 }
-function difference(a:TemporalFrame,b:TemporalFrame):number {
+function difference(a:TemporalFrame,b:TemporalFrame,roi:Uint8Array|null=null):number {
   if(a.width!==b.width||a.height!==b.height||
      a.data.length!==b.data.length)return 1;
   const n=a.width*a.height;
@@ -23,6 +23,7 @@ function difference(a:TemporalFrame,b:TemporalFrame):number {
   // Exposure shifts and some white-balance changes affect the entire image.
   // Subtract them independently, without erasing same-brightness colored darts.
   for(let i=0;i<n;i+=37) {
+    if(roi&&!roi[i])continue;
     const k=i*4;
     rs.push(b.data[k]-a.data[k]);
     gs.push(b.data[k+1]-a.data[k+1]);
@@ -37,6 +38,7 @@ function difference(a:TemporalFrame,b:TemporalFrame):number {
   let changed=0,total=0;
   const mask=new Uint8Array(n);
   for(let i=0;i<n;i+=SAMPLE_STEP){
+    if(roi&&!roi[i])continue;
     const k=i*4;
     const d=Math.max(
       Math.abs(b.data[k]-a.data[k]-ro),
@@ -70,17 +72,24 @@ function difference(a:TemporalFrame,b:TemporalFrame):number {
   return coherent/total;
 }
 export class VisualBoardReturn {
+  private roi:Uint8Array|null=null;
   private empty:TemporalFrame|null=null;
   private prior:TemporalFrame|null=null;
   private occupied=false;
   private quietSince=0;
   private confirmed=false;
   reset():void {
-    this.empty=null;this.prior=null;this.occupied=false;
+    this.roi=null;this.empty=null;this.prior=null;this.occupied=false;
     this.quietSince=0;this.confirmed=false;
   }
+  setRegion(mask:Uint8Array):void {
+    // Freeze the first validated board region. A moving camera cannot keep
+    // redefining the area used for the empty-board comparison.
+    if(!this.roi && mask.length===256*256 && mask.reduce((a,b)=>a+(b?1:0),0)>=4096)
+      this.roi=mask.slice();
+  }
   observe(frame:TemporalFrame,recordedDarts:number,now:number):boolean {
-    if(this.confirmed||!Number.isFinite(now)||now<=0 ||
+    if(!Number.isFinite(now)||now<=0 ||
        frame.width!==256||frame.height!==256)return false;
     if(recordedDarts===0){
       // Capture only a stable board at the beginning of THIS visit.
@@ -88,7 +97,7 @@ export class VisualBoardReturn {
       // this visit. The first dart can physically arrive before its score
       // reaches the HUD; repeatedly overwriting the reference while
       // recordedDarts===0 would silently make a dart-filled board "empty".
-      if(!this.empty && this.prior && difference(this.prior,frame) <= 0.0007){
+      if(!this.empty && this.prior && difference(this.prior,frame,this.roi) <= 0.0007){
         this.empty=frame;
       }
       this.prior=frame;
@@ -97,7 +106,13 @@ export class VisualBoardReturn {
       return false;
     }
     if(!this.empty)return false;
-    const changed=difference(this.empty,frame);
+    const changed=difference(this.empty,frame,this.roi);
+    if(this.confirmed){
+      if(changed<=BOARD_RETURN_MAX_EMPTY_CHANGED && recordedDarts===3)return false;
+      // A new obstruction invalidates the hold. The next genuinely clear
+      // sequence must settle again instead of reusing an old clear event.
+      this.confirmed=false;this.quietSince=0;
+    }
     if(recordedDarts<3){
       if(changed>=BOARD_RETURN_MIN_CHANGED && changed<0.14)
         this.occupied=true;
@@ -121,7 +136,7 @@ export class VisualBoardReturn {
   matchesCurrentEmpty(frame:TemporalFrame,recordedDarts:number):boolean {
     return recordedDarts===3 && this.confirmed && this.occupied &&
       this.empty!==null && frame.width===256 && frame.height===256 &&
-      difference(this.empty,frame)<=BOARD_RETURN_MAX_EMPTY_CHANGED;
+      difference(this.empty,frame,this.roi)<=BOARD_RETURN_MAX_EMPTY_CHANGED;
   }
   get hasEmptyReference():boolean{return this.empty!==null;}
   get hasSeenPhysicalDarts():boolean{return this.occupied;}
