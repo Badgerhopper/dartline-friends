@@ -106,6 +106,44 @@ describe('camera reports -> server tracker -> match -> verified takeout -> next 
     }finally{g.close();}
   });
 
+  it('keeps auto-submit available through twelve consecutive player turns and a camera reconnect',()=>{
+    const g=game();
+    try{
+      const p=[point(500000,220000),point(550000,220000),
+        point(450000,220000)];
+      for(let turn=0;turn<12;turn++){
+        if(turn===6){
+          g.session.setCameraActive('phone-1',false);
+          g.session.setCameraActive('phone-1',true);
+          g.session.setVerifiedTakeout(true);
+        }
+        const expectedOwner=turn%2;
+        expect(g.state().currentPlayerIndex).toBe(expectedOwner);
+        g.session.addTips('phone-1',[p[0]]);
+        expect(g.darts()).toBe(1);
+        g.session.addTips('phone-1',[p[0],p[1]]);
+        expect(g.darts()).toBe(2);
+        g.session.addTips('phone-1',p);
+        expect(g.darts()).toBe(3);
+        if(turn===4){
+          // The camera temporarily falsely thinks the board is empty,
+          // but then sees the same 3 darts still physically in place.
+          // This MUST NOT submit from a combination of old and new votes.
+          g.session.addTips('phone-1',[]);
+          expect(g.session.verifiedTakeoutStatus.confirmations).toBe(1);
+          g.session.addTips('phone-1',p);
+          expect(g.session.verifiedTakeoutStatus.confirmations).toBe(0);
+        }
+        g.submitAfterTakeout();
+        expect(g.state().visits).toHaveLength(turn+1);
+        expect(g.state().visits.at(-1)!.darts).toHaveLength(3);
+        expect(g.darts()).toBe(0);
+        expect(g.state().currentPlayerIndex).toBe((turn+1)%2);
+      }
+      expect(g.commits.length).toBeGreaterThanOrEqual(48);
+    }finally{g.close();}
+  });
+
   it('two empty reports from much different times cannot complete a visit',()=>{
     const g=game();
     try{
