@@ -146,7 +146,7 @@ def verify(root: Path) -> None:
             and 'visitContext.current.dartsRecorded===3' in scorer
         ),
         'Physical empty-board return is scoped to the same current visit': (
-            'visualBoardReturn.current.reset()' in scorer
+            'visualBoardReturn.current.startNextVisit()' in scorer
             and 'visualBoardReturn.current.observe(image,ctx.dartsRecorded,now)' in scorer
             and 'fastBoardClear.current.noteVisualClear(now)' in scorer
             and 'pendingRemovalWitness.current.replay(fastBoardClear.current,now)' in scorer
@@ -210,7 +210,7 @@ def verify(root: Path) -> None:
         ),
         'Photographic takeout needs fresh located visit plus physically cleared image': (
             'visualBoardReturn.current.matchesCurrentEmpty(image,ctx.dartsRecorded)' in scorer
-            and 'locatedVisitKey.current===ctx.key' in scorer
+            and 'locatedVideoSource.current===video.srcObject' in scorer
             and 'ctx.key,now,true,true,decodedFrameId' in scorer
             and 'photoTakeoutConfirm.current.reset()' in scorer
         ),
@@ -227,7 +227,7 @@ def verify(root: Path) -> None:
             and 'decodedFrameId!==null' in scorer
             and 'photoTakeoutConfirm.current.claim(' in scorer
             and 'ctx.key,now,true,true,decodedFrameId' in scorer
-            and 'lastLocatedAt.current>0 && now-lastLocatedAt.current<=12000' in scorer
+            and 'lastLocatedAt.current>0 && now-lastLocatedAt.current<=30000' in scorer
             and 'locatedVideoSource.current===video.srcObject' in scorer
         ),
         'Dart removal photo proof cannot deadlock the existing AI fallback': (
@@ -249,7 +249,7 @@ def verify(root: Path) -> None:
         ),
         'Automatic MISS scoring confined to physical circular board and double-to-rim': (
             'physicalBoardTipBatch(tips)' in scorer
-            and "import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physicalBoardMask, scoreHiddenTip }" in scorer
+            and "import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physicalBoardMask, scorePhysicalDart }" in scorer
             and 'if(onBoard===null)return;' in scorer
             and 'strongNewPhysicalMiss(x,y,guess)' in scorer
             and "boardImpactRegion(point[0],point[1])!=='outside'" in scorer
@@ -259,8 +259,8 @@ def verify(root: Path) -> None:
               (root/'src/client/lib/physicalBoardImpact.ts').read_text(encoding='utf-8')
         ),
         'Release marker and visible version match': (
-            marker == 'dartline-v6.2-shaft-extrapolation-RC'
-            and 'DARTLINE v6.2 RC · NOT RELEASED' in hud
+            marker == 'dartline-v6.3-physical-event-recovery-RC'
+            and 'DARTLINE v6.3 RC · NOT RELEASED' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
