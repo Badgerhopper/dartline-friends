@@ -54,9 +54,9 @@ import { VideoFrameFreshness } from '../../lib/videoFrameFreshness';""")
     patch(scorer,
       """        locatedVisitKey.current='';
         pendingRemovalWitness.current.reset();""",
-      """        locatedVisitKey.current='';
-        locatedVideoSource.current=null;
-        lastLocatedAt.current=0;
+      """        // The calibrated pose is a property of the camera, not the turn.
+        // A fresh pose from the same stream remains usable on the next visit.
+        locatedVisitKey.current='';
         pendingRemovalWitness.current.reset();""")
 
     patch(scorer,
@@ -73,7 +73,7 @@ import { VideoFrameFreshness } from '../../lib/videoFrameFreshness';""")
         freshVideoFrames.current.stop();
         visualBoardReturn.current.reset();
         photoTakeoutConfirm.current.reset();
-        lastLocatedPhotoFrame.current=null;
+        lastLocatedPhotoFrame.current=vision.frameRef.current;
         lastLocatedAt.current=0;
         locatedVideoSource.current=null;
         locatedVisitKey.current='';
@@ -107,19 +107,21 @@ import { VideoFrameFreshness } from '../../lib/videoFrameFreshness';""")
         }""",
       """        const allowed=Boolean(takeoutExclusive.current && scoring &&
           vision.cameraActive && ctx.dartsRecorded===3 &&
-          locatedVisitKey.current===ctx.key &&
           video?.srcObject && locatedVideoSource.current===video.srcObject &&
-          lastLocatedAt.current>0 && now-lastLocatedAt.current<=12000 &&
-          decodedFrameId!==null && document.visibilityState==='visible');
+          lastLocatedAt.current>0 && now-lastLocatedAt.current<=30000 &&
+          decodedFrameId!==null);
         const clear=allowed &&
           visualBoardReturn.current.matchesCurrentEmpty(image,ctx.dartsRecorded);
         // After the limited photo attempts, the existing model-based
         // verifier MUST get the camera again. No permanent starve/lockup.
         photoTakeoutPriority.current=clear &&
           photoTakeoutConfirm.current.hasBudget;
-        if(!clear){
-          // No partial photo confirmation survives an intervening obstructed
-          // or occupied camera image or a missing decoded video frame.
+        if(decodedFrameId===null){
+          // No newly presented frame is not an observation of obstruction.
+          // Fall back to AI while no fresh picture is available; the pair
+          // itself has a strict maximum time gap before it can restart.
+          photoTakeoutPriority.current=false;
+        } else if(!clear){
           photoTakeoutConfirm.current.invalidate(ctx.key,now);
         } else if(photoTakeoutConfirm.current.claim(
             ctx.key,now,true,true,decodedFrameId)){
