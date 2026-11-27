@@ -154,7 +154,8 @@ function fitShape(pts:number[],w:number,h:number,changeFraction:number):Temporal
   return {x:px/w,y:py/h,confidence,length,area:n,changeFraction,obscured:ratio<1.5};
 }
 /** Reject global motion and hands, prefer thin elongated new darts. */
-export function detectTemporalDart(before:TemporalFrame,after:TemporalFrame):TemporalGuess|null {
+export function detectTemporalDart(before:TemporalFrame,after:TemporalFrame,
+  accept?:(x:number,y:number)=>boolean):TemporalGuess|null {
   if(before.width!==after.width||before.height!==after.height ||
      before.data.length!==before.width*before.height*4 ||
      after.data.length!==after.width*after.height*4)return null;
@@ -164,7 +165,7 @@ export function detectTemporalDart(before:TemporalFrame,after:TemporalFrame):Tem
   let best:TemporalGuess|null=null;
   for(const part of parts){
     const candidate=fitShape(part,before.width,before.height,d.fraction);
-    if(!candidate)continue;
+    if(!candidate || (accept && !accept(candidate.x,candidate.y)))continue;
     if(!best || candidate.area*candidate.confidence > best.area*best.confidence)
       best=candidate;
   }
@@ -180,7 +181,8 @@ export class TemporalDartTracker {
   private quiet=0;
   private lastDecision=0;
   reset():void {this.baseline=null;this.prior=null;this.quiet=0;this.lastDecision=0;}
-  observe(frame:TemporalFrame,now:number):TemporalGuess|null {
+  observe(frame:TemporalFrame,now:number,
+    accept?:(x:number,y:number)=>boolean):TemporalGuess|null {
     if(!Number.isFinite(now)||now<=0)return null;
     if(!this.baseline){this.baseline=frame;this.prior=frame;return null;}
     if(!this.prior){this.prior=frame;return null;}
@@ -195,7 +197,7 @@ export class TemporalDartTracker {
     // A hand covering much of the board is not a throw, and must not
     // become a new baseline. Wait until the hand exits.
     if(diff>MAX_CHANGE_FRACTION)return null;
-    const guess=detectTemporalDart(this.baseline,frame);
+    const guess=detectTemporalDart(this.baseline,frame,accept);
     this.lastDecision=now;
     // Advance only on a stable after-frame; each physical change is proposed
     // once. The server never scores the raw suggestion automatically.
