@@ -38,9 +38,11 @@ def install(root:Path):
     replace_one(gate,
         'export const IDLE_RECOVERY_INTERVAL_MS = 2200;',
         'export const IDLE_RECOVERY_INTERVAL_MS = 950;')
-    replace_one(gate,
-        'export const IDLE_RECOVERY_MIN_SEPARATION_MS = 800;',
-        'export const IDLE_RECOVERY_MIN_SEPARATION_MS = 550;')
+    # v6.1 source already uses the same 550ms independent-sample spacing.
+    if 'export const IDLE_RECOVERY_MIN_SEPARATION_MS = 550;' not in gate.read_text(encoding='utf-8'):
+        replace_one(gate,
+            'export const IDLE_RECOVERY_MIN_SEPARATION_MS = 800;',
+            'export const IDLE_RECOVERY_MIN_SEPARATION_MS = 550;')
     gate_test=root/'tests/unit/dartline-idle-tip-recovery.test.ts'
     replace_one(gate_test,
         'expect(IDLE_RECOVERY_INTERVAL_MS).toBeGreaterThanOrEqual(1800);',
