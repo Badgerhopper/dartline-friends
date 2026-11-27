@@ -169,7 +169,7 @@ def verify(root: Path) -> None:
         ),
         'The same camera image and matching tip set is not sent again': (
             'visualScoringDeduper.current.shouldForward(' in scorer
-            and 'scoringVisitKey.current,tips,shot,Date.now()' in scorer
+            and 'scoringVisitKey.current,tips,recent,when' in scorer
             and 'visualScoringDeduper.current.reset()' in scorer
             and 'function boardImageChangedFraction' in
               (root/'src/client/lib/rapidVisualScoring.ts').read_text(encoding='utf-8')
