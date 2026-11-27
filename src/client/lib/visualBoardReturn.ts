@@ -88,6 +88,13 @@ export class VisualBoardReturn {
     }
     return false;
   }
+  /** Strong proof is tied to THIS photo, not just a prior confirmed event.
+   * A moved camera, new dart or hand in the frame cannot reuse old proof. */
+  matchesCurrentEmpty(frame:TemporalFrame,recordedDarts:number):boolean {
+    return recordedDarts===3 && this.confirmed && this.occupied &&
+      this.empty!==null && frame.width===256 && frame.height===256 &&
+      difference(this.empty,frame)<=BOARD_RETURN_MAX_EMPTY_CHANGED;
+  }
   get hasEmptyReference():boolean{return this.empty!==null;}
   get hasSeenPhysicalDarts():boolean{return this.occupied;}
 }
