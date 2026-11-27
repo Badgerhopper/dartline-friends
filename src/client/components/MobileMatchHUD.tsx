@@ -186,7 +186,7 @@ export function MobileMatchHUD({
     <section className="dartline-mobile-hud" aria-label="DartLine mobile scoreboard">
       <div className="dartline-hud-top">
         <div className="dartline-hud-brand">
-          <span className="dartline-hud-eyebrow">DARTLINE v6.2 RC · NOT RELEASED · {textOf(view.headline)}</span>
+          <span className="dartline-hud-eyebrow">DARTLINE v6.3 RC · NOT RELEASED · {textOf(view.headline)}</span>
           <strong>{current?.name ?? 'Dart match'} {isMyTurn ? <em>YOUR TURN</em> : <em>THROWING</em>}</strong>
         </div>
         <div className="dartline-hud-top-actions">
