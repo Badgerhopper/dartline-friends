@@ -110,6 +110,28 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
       'try { latestOnTips.current(relaxed.tips,Math.round(frame.ms)); }',
       'try { latestOnTips.current(onBoardTips,Math.round(frame.ms)); }')
 
+    # Carry the actual inference-time photo with the located result. The
+    # next timer tick is not necessarily the picture the AI classified.
+    runtime=root/'src/client/vision/visionRuntime.ts'
+    patch(runtime,
+      "import { InferenceErrorRecovery } from '../lib/inferenceErrorRecovery';",
+      """import { InferenceErrorRecovery } from '../lib/inferenceErrorRecovery';
+import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence';""")
+    patch(runtime,
+      'export type FrameInfo = {',
+      'export type FrameInfo = {\n  temporalPhoto?:TemporalFrame|null;')
+    patch(runtime,
+      '  function captureInputFrame() {',
+      '  let evidenceCanvas:HTMLCanvasElement|null=null;\n  function captureInputFrame() {')
+    patch(runtime,
+      '      captureInputFrame();',
+      """      captureInputFrame();
+      if(!evidenceCanvas)evidenceCanvas=document.createElement('canvas');
+      const temporalPhoto=readTemporalCamera(video,evidenceCanvas);""")
+    patch(runtime,
+      '      onFrame({\n        keypoints,',
+      '      onFrame({\n        temporalPhoto,\n        keypoints,')
+
     # Motion recognition still ran expensive neural scans during retrieval
     # even though the publication guard discarded them. Keep the verifier
     # in charge of the only model calls during a full visit.
@@ -156,7 +178,7 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
 
     patch(scorer,
       '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.reset();\n        photoTakeoutConfirm.current.reset();',
-      '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.startNextVisit();\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
+      '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.startNextVisit();\n        temporalDartTracker.current.setRegion(visualBoardReturn.current.regionMask);\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
     patch(scorer,
       '  const lastLocatedPhotoFrame = useRef<unknown>(null);',
       '  const lastLocatedPhotoFrame = useRef<unknown>(null);\n  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);')
@@ -176,16 +198,31 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
             locatedVideoSource.current=video?.srcObject??null;
             lastLocatedAt.current=now;
             lastGoodPose.current=completed;
-            if(!visualBoardReturn.current.hasRegion && ctx.dartsRecorded===0){
+            if(!visualBoardReturn.current.hasRegion){
               const runtime=vision.runtimeRef.current;
               if(runtime?.camera.active){
                 const lens=sliderValueToLensK1(runtime.lensCalibration);
                 const matrix=completed.result.homography;
-                visualBoardReturn.current.setRegion(physicalBoardMask((x,y)=>
-                  transformPoint(undistortNormalizedPoint([x,y],lens),matrix)));
+                const region=physicalBoardMask((x,y)=>
+                  transformPoint(undistortNormalizedPoint([x,y],lens),matrix));
+                visualBoardReturn.current.setRegion(region);
+                temporalDartTracker.current.setRegion(region);
               }
             }
+            if(ctx.dartsRecorded===0&&!visualBoardReturn.current.hasEmptyReference){
+              const runtime=vision.runtimeRef.current;
+              const relaxed=runtime?recoverBoard(completed.keypoints,
+                vision.settings.boardThreshold,Math.min(vision.settings.tipThreshold,RELAXED_TIP_THRESHOLD),
+                runtime.lensCalibration):null;
+              const empty=Boolean(relaxed&&!relaxed.tips.some(t=>boardImpactRegion(t.x,t.y)!=='outside'));
+              visualBoardReturn.current.observeLocatedEmpty(completed.temporalPhoto??null,empty,now);
+            }
+          } else if(ctx.dartsRecorded===0){
+            visualBoardReturn.current.observeLocatedEmpty(null,false,now);
           }""")
+    patch(scorer,
+      'visualBoardReturn.current.observe(image,ctx.dartsRecorded,now)',
+      'visualBoardReturn.current.observe(image,ctx.dartsRecorded,now,true)')
 
     types=root/'src/shared/vision/types.ts'
     patch(types,
@@ -288,7 +325,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       '      inferenceMs: Math.round(vision.frame?.ms ?? 0),',
       """      inferenceMs: Math.round(vision.frame?.ms ?? 0),
       cameraTrace: [
-        'Scorer v6.3.1 | '+status+' | '+view,
+        'Scorer v6.3.2 | '+status+' | '+view,
         'Camera '+(vision.cameraActive?'on':'off')+' | scoring '+scoring,
         'Context '+(visitContext.current.key?'present':'MISSING')+
           ' | active '+visitContext.current.active+
@@ -336,12 +373,12 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       """      <details className="dartline-hud-slot-hint" style={{display:'block',textAlign:'left',padding:8}}>
         <summary>Camera Diagnostics · {cameraReport?.inferenceMs??0} ms AI</summary>
         <pre style={{whiteSpace:'pre-wrap',textAlign:'left',fontSize:12}}>{[
-          'HUD v6.3.1 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
+          'HUD v6.3.2 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
           cameraReport?'Health received | scoring '+cameraReport.scoring:'No camera health received',
           ...(cameraReport?.cameraTrace?.length?cameraReport.cameraTrace:['No scorer trace received'])
         ].join('\\n')}</pre>
         <button type="button" onClick={()=>void navigator.clipboard?.writeText([
-          'HUD v6.3.1 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
+          'HUD v6.3.2 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
           cameraReport?'Health received | scoring '+cameraReport.scoring:'No camera health received',
           ...(cameraReport?.cameraTrace??['No scorer trace received'])
         ].join('\\n')).catch(()=>{})}>Copy diagnostics</button>
@@ -349,7 +386,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       <div className="dartline-hud-slot-hint">""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
-      'dartline-v6.3.1-diagnostics-RC\n',
+      'dartline-v6.3.2-verified-reference-RC\n',
       encoding='utf-8')
     print('DartLine v6 DRAFT physical board-only MISS recognition enabled')
 
