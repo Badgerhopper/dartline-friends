@@ -97,9 +97,11 @@ export class VisualBoardReturn {
   private quietSince=0;
   private confirmed=false;
   private lastComparison=1;
+  private emptyScanAt=0;
+  private emptyScan:TemporalFrame|null=null;
   reset():void {
     this.roi=null;this.empty=null;this.prior=null;this.occupied=false;
-    this.quietSince=0;this.confirmed=false;this.lastComparison=1;
+    this.quietSince=0;this.confirmed=false;this.lastComparison=1;this.emptyScanAt=0;this.emptyScan=null;
   }
   startNextVisit():void {
     // Keep a genuinely verified empty reference on the same camera.
@@ -109,6 +111,7 @@ export class VisualBoardReturn {
     // a failed auto-submit must not poison the reference for every later turn.
     if(!this.empty){this.reset();return;}
     this.prior=null;this.occupied=false;this.quietSince=0;this.confirmed=false;
+    this.emptyScanAt=0;this.emptyScan=null;
   }
   setRegion(mask:Uint8Array):void {
     // Freeze the first validated board region. A moving camera cannot keep
@@ -116,7 +119,27 @@ export class VisualBoardReturn {
     if(!this.roi && mask.length===256*256 && mask.reduce((a,b)=>a+(b?1:0),0)>=4096)
       this.roi=mask.slice();
   }
-  observe(frame:TemporalFrame,recordedDarts:number,now:number):boolean {
+  /** Two independent board-located model scans with no relaxed on-board
+   * tips can bootstrap the reference even when camera noise prevents two
+   * adjacent raw frames from matching. Only used before the first score.
+   * A positive/unlocated scan cancels the pending reference. */
+  observeLocatedEmpty(frame:TemporalFrame|null,empty:boolean,now:number):boolean {
+    if(this.empty)return true;
+    if(!empty||!frame||frame.width!==256||frame.height!==256||
+       frame.data.length!==256*256*4||!Number.isFinite(now)||now<=0){
+      this.emptyScan=null;this.emptyScanAt=0;return false;
+    }
+    if(this.emptyScan && now-this.emptyScanAt>=250 &&
+       now-this.emptyScanAt<=5000 &&
+       difference(this.emptyScan,frame,this.roi)<=0.008){
+      this.empty=frame;this.emptyScan=null;this.emptyScanAt=0;return true;
+    }
+    if(!this.emptyScan||now-this.emptyScanAt>=250){
+      this.emptyScan=frame;this.emptyScanAt=now;
+    }
+    return false;
+  }
+  observe(frame:TemporalFrame,recordedDarts:number,now:number,requireLocatedReference=false):boolean {
     if(!Number.isFinite(now)||now<=0 ||
        frame.width!==256||frame.height!==256)return false;
     if(recordedDarts===0){
@@ -125,7 +148,7 @@ export class VisualBoardReturn {
       // this visit. The first dart can physically arrive before its score
       // reaches the HUD; repeatedly overwriting the reference while
       // recordedDarts===0 would silently make a dart-filled board "empty".
-      if(!this.empty && this.prior && difference(this.prior,frame,this.roi) <= 0.0007){
+      if(!this.empty && this.prior && difference(this.prior,frame,this.roi) <= 0.0007 && !requireLocatedReference){
         this.empty=frame;
       }
       this.prior=frame;
