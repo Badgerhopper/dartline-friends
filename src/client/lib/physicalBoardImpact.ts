@@ -131,7 +131,6 @@ export class OuterMissConfirmation {
   reset():void {this.visit='';this.token=null;this.lastAt=0;this.prior=[];}
   filter(tips:BoardTip[],visit:string,frame:unknown,now:number):BoardTip[]|null {
     if(visit!==this.visit){this.reset();this.visit=visit;}
-    if(!tips.length)return [];
     const misses=tips.filter(t=>boardImpactRegion(t.x,t.y)==='miss'&&!t.estimate);
     if(frame && frame!==this.token && (!this.lastAt||now-this.lastAt>=250)){
       const old=now-this.lastAt<=4500?this.prior:[];
@@ -147,6 +146,7 @@ export class OuterMissConfirmation {
       });
       this.token=frame;this.lastAt=now;
     }
+    if(!tips.length)return [];
     const accepted=tips.filter(t=>t.estimate||boardImpactRegion(t.x,t.y)!=='miss'||
       this.prior.some(p=>p.hits>=(t.confidence>=.85?2:3)&&
         Math.hypot(t.x-p.tip.x,t.y-p.tip.y)<15000));
