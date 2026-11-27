@@ -123,6 +123,17 @@ export class VisualBoardReturn {
    * tips can bootstrap the reference even when camera noise prevents two
    * adjacent raw frames from matching. Only used before the first score.
    * A positive/unlocated scan cancels the pending reference. */
+  /** Explicit confirmation by the player with an actually empty board.
+   * Caller validates the owned zero-dart visit, camera pose and frame age.
+   * This never submits a turn and never treats a scored dart as empty. */
+  confirmUserEmpty(frame:TemporalFrame,recordedDarts:number):boolean {
+    if(recordedDarts!==0||frame.width!==256||frame.height!==256||
+       frame.data.length!==256*256*4)return false;
+    this.empty=frame;this.prior=frame;
+    this.occupied=false;this.confirmed=false;this.quietSince=0;
+    this.emptyScan=null;this.emptyScanAt=0;this.lastComparison=0;
+    return true;
+  }
   observeLocatedEmpty(frame:TemporalFrame|null,empty:boolean,now:number):boolean {
     if(this.empty)return true;
     if(!empty||!frame||frame.width!==256||frame.height!==256||
