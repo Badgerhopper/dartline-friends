@@ -178,6 +178,18 @@ describe('physical empty-board return evidence does not depend on AI or hand mot
    gate.observe(slightlyDifferent,3,2700,true);
    expect(gate.observe(slightlyDifferent,3,3400,true)).toBe(true);
  });
+ it('allows explicit empty calibration only before scoring and retains it across turns',()=>{
+   const gate=new VisualBoardReturn(),clear=frame(),full=addDart(clear);
+   expect(gate.confirmUserEmpty(full,3)).toBe(false);
+   expect(gate.hasEmptyReference).toBe(false);
+   expect(gate.confirmUserEmpty(clear,0)).toBe(true);
+   gate.observe(full,3,1000,true);
+   expect(gate.observe(full,3,1800,true)).toBe(false);
+   gate.observe(clear,3,2200,true);
+   expect(gate.observe(clear,3,2900,true)).toBe(true);
+   gate.startNextVisit();
+   expect(gate.hasEmptyReference).toBe(true);
+ });
  it('rejects an intervening positive or unlocated model scan before acquiring the reference',()=>{
    const gate=new VisualBoardReturn(),clear=frame();
    gate.observeLocatedEmpty(clear,true,1000);
