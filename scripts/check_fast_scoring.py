@@ -164,7 +164,7 @@ def verify(root: Path) -> None:
               (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
         ),
         'The physical empty reference is frozen for the entire current visit': (
-            'if(!this.empty && this.prior && difference(this.prior,frame)' in
+            'if(!this.empty && this.prior && difference(this.prior,frame,this.roi)' in
               (root/'src/client/lib/visualBoardReturn.ts').read_text(encoding='utf-8')
         ),
         'The same camera image and matching tip set is not sent again': (
@@ -249,7 +249,7 @@ def verify(root: Path) -> None:
         ),
         'Automatic MISS scoring confined to physical circular board and double-to-rim': (
             'physicalBoardTipBatch(tips)' in scorer
-            and "import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch }" in scorer
+            and "import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physicalBoardMask, scoreHiddenTip }" in scorer
             and 'if(onBoard===null)return;' in scorer
             and 'strongNewPhysicalMiss(x,y,guess)' in scorer
             and "boardImpactRegion(point[0],point[1])!=='outside'" in scorer
@@ -259,8 +259,8 @@ def verify(root: Path) -> None:
               (root/'src/client/lib/physicalBoardImpact.ts').read_text(encoding='utf-8')
         ),
         'Release marker and visible version match': (
-            marker == 'dartline-v6.1-camera-noise-cluster-recovery-RC'
-            and 'DARTLINE v6.1 RC · NOT RELEASED' in hud
+            marker == 'dartline-v6.2-shaft-extrapolation-RC'
+            and 'DARTLINE v6.2 RC · NOT RELEASED' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
