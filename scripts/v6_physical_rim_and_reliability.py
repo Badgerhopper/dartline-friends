@@ -120,8 +120,8 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
       '    if(tips.length && !takeoutExclusive.current && !tips.some(t=>t.estimate)){')
 
     patch(scorer,
-      '        visualBoardReturn.current.reset();\n        photoTakeoutConfirm.current.reset();',
-      '        visualBoardReturn.current.startNextVisit();\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
+      '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.reset();\n        photoTakeoutConfirm.current.reset();',
+      '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.startNextVisit();\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
     # Install the calibrated physical-board region once per visit, not once
     # per camera frame. Takeout still requires the occupied/empty sequence.
     patch(scorer,
