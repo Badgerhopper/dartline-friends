@@ -1,6 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {boardImageChangedFraction,sameTipSet,VisualScoringDeduper,
   RapidVisualRecovery,VISUAL_DUPLICATE_RETRY_MS} from '../../src/client/lib/rapidVisualScoring';
+import {IdleTipRecovery, IDLE_RECOVERY_MIN_SEPARATION_MS} from '../../src/client/lib/idleTipRecovery';
 import type {TemporalFrame} from '../../src/client/lib/temporalDartEvidence';
 import type {BoardTip} from '../../src/shared/vision/types';
 const W=256;
@@ -80,16 +81,26 @@ describe('rapid inference priority for a truly newly settled dart',()=>{
    scan.finished(1000,true);
    expect(scan.shouldProbe(1300,true)).toBe(false);
    scan.newPhysicalDart(1360);
-   expect(scan.shouldProbe(1540,true)).toBe(false);
-   expect(scan.shouldProbe(1560,true)).toBe(true);
-   scan.finished(1600,true);
+   expect(scan.shouldProbe(1799,true)).toBe(false);
+   expect(scan.shouldProbe(1800,true)).toBe(true);
+   scan.finished(1850,true);
    expect(scan.pendingFastProbes).toBe(1);
-   expect(scan.shouldProbe(2000,true)).toBe(false);
-   expect(scan.shouldProbe(2150,true)).toBe(true);
-   scan.finished(2200,true);
+   expect(scan.shouldProbe(2649,true)).toBe(false);
+   expect(scan.shouldProbe(2650,true)).toBe(true);
+   scan.finished(2700,true);
    expect(scan.pendingFastProbes).toBe(0);
-   expect(scan.shouldProbe(2700,true)).toBe(false);
-   expect(scan.shouldProbe(3150,true)).toBe(true);
+   expect(scan.shouldProbe(3649,true)).toBe(false);
+   expect(scan.shouldProbe(3650,true)).toBe(true);
+ });
+ it('the next rapid model sample is actually accepted by the scoring confirmation gate',()=>{
+   const scan=new RapidVisualRecovery(),gate=new IdleTipRecovery();
+   scan.newPhysicalDart(1000);
+   expect(gate.observe([tip(550000)],1000)).toEqual([]);
+   scan.finished(1000,true);
+   const next=1000+IDLE_RECOVERY_MIN_SEPARATION_MS;
+   expect(scan.shouldProbe(next-1,true)).toBe(false);
+   expect(scan.shouldProbe(next,true)).toBe(true);
+   expect(gate.observe([tip(550300)],next)).toHaveLength(1);
  });
  it('busy inference never consumes a priority check',()=>{
    const scan=new RapidVisualRecovery();
