@@ -190,6 +190,44 @@ describe('physical empty-board return evidence does not depend on AI or hand mot
    gate.startNextVisit();
    expect(gate.hasEmptyReference).toBe(true);
  });
+ it('recovers the missing initial reference from the first actual verified takeout and preserves it',()=>{
+   const gate=new VisualBoardReturn(),clear=frame(),full=addDart(clear);
+   expect(gate.hasEmptyReference).toBe(false);
+   expect(gate.observeRemovalScan(full,'occupied',2,1000)).toBe(false);
+   expect(gate.observeRemovalScan(full,'empty',3,1400)).toBe(false);
+   expect(gate.observeRemovalScan(clear,'empty',3,1800)).toBe(false);
+   expect(gate.observeRemovalScan(clear,'empty',3,2300)).toBe(true);
+   gate.rememberVotedEmpty(clear);
+   expect(gate.hasEmptyReference).toBe(false);
+   gate.startNextVisit();
+   expect(gate.hasEmptyReference).toBe(true);
+   gate.observe(full,1,2600,true);gate.observe(full,3,3000,true);
+   gate.observe(clear,3,3400,true);
+   expect(gate.observe(clear,3,4100,true)).toBe(true);
+ });
+ it('retains the verified model takeout image even if initial calibration never occurred',()=>{
+   const gate=new VisualBoardReturn(),clear=frame();
+   gate.rememberVotedEmpty(clear);
+   gate.startNextVisit();
+   expect(gate.hasEmptyReference).toBe(true);
+   gate.reset();expect(gate.hasEmptyReference).toBe(false);
+ });
+ it('never witnesses removal from identical images, and rejects a camera obstruction',()=>{
+   const gate=new VisualBoardReturn(),full=addDart(frame()),hand=frame(210);
+   gate.observeRemovalScan(full,'occupied',2,1000);
+   expect(gate.observeRemovalScan(full,'empty',3,1500)).toBe(false);
+   expect(gate.observeRemovalScan(full,'empty',3,2000)).toBe(false);
+   expect(gate.observeRemovalScan(hand,'empty',3,2500)).toBe(false);
+   expect(gate.observeRemovalScan(hand,'empty',3,3000)).toBe(false);
+   gate.startNextVisit();expect(gate.hasEmptyReference).toBe(false);
+ });
+ it('finishes initial calibration from a located empty scan and a subsequent stable live frame',()=>{
+   const gate=new VisualBoardReturn(),clear=frame(),full=addDart(clear);
+   gate.observeLocatedEmpty(clear,true,1000);
+   expect(gate.finishInitialReference(clear,1200)).toBe(false);
+   expect(gate.finishInitialReference(full,1400)).toBe(false);
+   expect(gate.finishInitialReference(clear,1500)).toBe(true);
+ });
  it('rejects an intervening positive or unlocated model scan before acquiring the reference',()=>{
    const gate=new VisualBoardReturn(),clear=frame();
    gate.observeLocatedEmpty(clear,true,1000);
