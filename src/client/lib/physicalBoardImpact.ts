@@ -63,7 +63,10 @@ export function physicalBoardMask(
   const mask=new Uint8Array(size*size);
   for(let y=0;y<size;y++)for(let x=0;x<size;x++){
     const p=project((x+.5)/size,(y+.5)/size);
-    if(p&&boardImpactRegion(p[0],p[1])!=='outside')mask[y*size+x]=1;
+    // Include a small margin for shafts/flights that project just outside
+    // the board. This ROI is for removal only, never for scoring off-board tips.
+    if(p&&Math.hypot(p[0]-BOARD_CENTER,p[1]-BOARD_CENTER)<=PHYSICAL_BOARD_EDGE+BOARD_MAX*.04)
+      mask[y*size+x]=1;
   }
   return mask;
 }
