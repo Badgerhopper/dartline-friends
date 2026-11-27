@@ -72,13 +72,13 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
         return transformPoint(p,frame.result.homography);
       };
       // Preserve the last settled baseline while board pose is temporarily lost.
-      if(!runtime?.camera.active || !frame?.result)return;
+      if(!runtime?.camera.active || !frame?.result){trace('Physical scanner: waiting for board pose');return;}
       const guess=temporalDartTracker.current.observe(image,now,
         (gx,gy)=>{
           const point=project(gx,gy);
           return point!==null && boardImpactRegion(point[0],point[1])!=='outside';
         },ctx.dartsRecorded,visualBoardReturn.current.emptyReference);
-      if(!guess || !runtime?.camera.active || !frame?.result)return;
+      if(!guess || !runtime?.camera.active || !frame?.result){trace('Physical scanner: no settled shaft');return;}
       rapidVisualRecovery.current.newPhysicalDart(now,guess.obscured||guess.confidence<0.80);
       const board=project(guess.x,guess.y);
       if(!board || !board.every(Number.isFinite))return;""")
@@ -286,7 +286,19 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       '  const lastLocatedAt = useRef(0);\n  const cameraTrace=useRef<string[]>([]);\n  const trace=(message:string)=>{\n    const last=cameraTrace.current.at(-1);\n    if(last===message)return;\n    cameraTrace.current=[...cameraTrace.current.slice(-19),message];\n  };')
     patch(scorer,
       '      inferenceMs: Math.round(vision.frame?.ms ?? 0),',
-      '      inferenceMs: Math.round(vision.frame?.ms ?? 0),\n      cameraTrace: cameraTrace.current,')
+      """      inferenceMs: Math.round(vision.frame?.ms ?? 0),
+      cameraTrace: [
+        'Scorer v6.3.1 | '+status+' | '+view,
+        'Camera '+(vision.cameraActive?'on':'off')+' | scoring '+scoring,
+        'Context '+(visitContext.current.key?'present':'MISSING')+
+          ' | active '+visitContext.current.active+
+          ' | count '+visitContext.current.dartsRecorded,
+        'Takeout armed '+takeoutExclusive.current+
+          ' | photo votes '+photoTakeoutConfirm.current.reportsSent,
+        'Board pose '+(lastLocatedAt.current?Math.round((Date.now()-lastLocatedAt.current)/1000)+'s old':'missing')+
+          ' | empty reference '+visualBoardReturn.current.hasEmptyReference,
+        ...cameraTrace.current.slice(-15)
+      ],""")
     patch(scorer,
       '        photoTakeoutPriority.current=clear &&',
       """        if(ctx.dartsRecorded===3){
@@ -321,16 +333,23 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       '  inferenceMs?:number;\n  cameraTrace?:string[];')
     patch(hud,
       '      <div className="dartline-hud-slot-hint">',
-      """      {cameraReport?.cameraTrace?.length ? <details className="dartline-hud-slot-hint">
-        <summary>Camera diagnostics · {cameraReport.inferenceMs??0} ms AI</summary>
-        <pre style={{whiteSpace:'pre-wrap',textAlign:'left'}}>{cameraReport.cameraTrace.join('\\n')}</pre>
-        <button type="button" onClick={()=>void navigator.clipboard?.writeText(
-          cameraReport.cameraTrace?.join('\\n')??'').catch(()=>{})}>Copy diagnostics</button>
-      </details> : null}
+      """      <details className="dartline-hud-slot-hint" style={{display:'block',textAlign:'left',padding:8}}>
+        <summary>Camera Diagnostics · {cameraReport?.inferenceMs??0} ms AI</summary>
+        <pre style={{whiteSpace:'pre-wrap',textAlign:'left',fontSize:12}}>{[
+          'HUD v6.3.1 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
+          cameraReport?'Health received | scoring '+cameraReport.scoring:'No camera health received',
+          ...(cameraReport?.cameraTrace?.length?cameraReport.cameraTrace:['No scorer trace received'])
+        ].join('\\n')}</pre>
+        <button type="button" onClick={()=>void navigator.clipboard?.writeText([
+          'HUD v6.3.1 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
+          cameraReport?'Health received | scoring '+cameraReport.scoring:'No camera health received',
+          ...(cameraReport?.cameraTrace??['No scorer trace received'])
+        ].join('\\n')).catch(()=>{})}>Copy diagnostics</button>
+      </details>
       <div className="dartline-hud-slot-hint">""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
-      'dartline-v6.3-physical-event-recovery-RC\n',
+      'dartline-v6.3.1-diagnostics-RC\n',
       encoding='utf-8')
     print('DartLine v6 DRAFT physical board-only MISS recognition enabled')
 
