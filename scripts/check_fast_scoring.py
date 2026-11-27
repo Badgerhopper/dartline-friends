@@ -222,6 +222,8 @@ def verify(root: Path) -> None:
         ),
         'Unreleased photo submission requires ACTUAL decoded video frames': (
             'freshVideoFrames.current.sample(video,now)' in scorer
+            and 'stream!==observedCameraSource.current' in scorer
+            and 'locatedVideoSource.current=null' in scorer
             and 'decodedFrameId!==null' in scorer
             and 'photoTakeoutConfirm.current.claim(' in scorer
             and 'ctx.key,now,true,true,decodedFrameId' in scorer
