@@ -159,7 +159,10 @@ export function detectTemporalDart(before:TemporalFrame,after:TemporalFrame,
   if(before.width!==after.width||before.height!==after.height ||
      before.data.length!==before.width*before.height*4 ||
      after.data.length!==after.width*after.height*4)return null;
-  const d=delta(before,after);
+  return detectFromDelta(before,delta(before,after),accept);
+}
+function detectFromDelta(before:TemporalFrame,d:ReturnType<typeof delta>,
+  accept?:(x:number,y:number)=>boolean):TemporalGuess|null {
   if(d.fraction>MAX_CHANGE_FRACTION||d.fraction<0.00015)return null;
   const parts=components(d.bin,before.width,before.height);
   let best:TemporalGuess|null=null;
@@ -189,15 +192,21 @@ export class TemporalDartTracker {
     const motion=fractionChanged(this.prior,frame);
     // Even a narrow new shaft changes much less than 1% of 256px pixels.
     // 1.2% incorrectly marked the actual arrival as a quiet frame.
-    this.quiet=motion<0.00045?this.quiet+1:0;
+    this.quiet=motion<0.00015?this.quiet+1:0;
     this.prior=frame;
     if(this.quiet<2||now-this.lastDecision<500)return null;
-    const diff=fractionChanged(this.baseline,frame);
-    if(diff<0.0007)return null;
+    if(this.baseline.width!==frame.width||this.baseline.height!==frame.height||
+       frame.data.length!==frame.width*frame.height*4){this.reset();return null;}
+    // Reuse the baseline difference for shape extraction rather than doing
+    // a second full RGB comparison on the same pair. A short exposed shaft
+    // may change fewer than 46 pixels when a nearby dart hides the rest.
+    const change=delta(this.baseline,frame);
+    const diff=change.fraction;
+    if(diff<0.00025)return null;
     // A hand covering much of the board is not a throw, and must not
     // become a new baseline. Wait until the hand exits.
     if(diff>MAX_CHANGE_FRACTION)return null;
-    const guess=detectTemporalDart(this.baseline,frame,accept);
+    const guess=detectFromDelta(this.baseline,change,accept);
     this.lastDecision=now;
     // Advance only on a stable after-frame; each physical change is proposed
     // once. The server never scores the raw suggestion automatically.
