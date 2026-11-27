@@ -93,18 +93,49 @@ export class IdleTipRecovery {
     const usedPrior = new Set<number>();
     const sorted = [...eligible].sort((a, b) => b.confidence - a.confidence);
 
-    for (const tip of sorted) {
-      let nearest = -1;
-      let best = Infinity;
-      for (let i = 0; i < prior.length; i++) {
-        if (usedPrior.has(i)) continue;
-        const prev = representative(prior[i]);
-        const distance = Math.hypot(tip.x - prev.x, tip.y - prev.y);
-        if (distance < IDLE_RECOVERY_MATCH_RADIUS && distance < best) {
-          nearest = i;
-          best = distance;
+    // Assign the whole batch before updating tracks. A high-confidence
+    // tip between two existing darts can otherwise steal the only match
+    // available to its neighbor. Maximize matched identities first, then
+    // minimize total displacement. Normally there are at most three tips.
+    const distances=sorted.map(tip=>prior.map(c=>{
+      const p=representative(c);
+      return Math.hypot(tip.x-p.x,tip.y-p.y);
+    }));
+    let assignment:number[]=[];
+    if(sorted.length<=6 && prior.length<=6){
+      let bestCount=-1,bestCost=Infinity;
+      const used=new Set<number>();
+      const walk=(i:number,count:number,cost:number,path:number[])=>{
+        if(i===sorted.length){
+          if(count>bestCount || (count===bestCount && cost<bestCost)){
+            bestCount=count;bestCost=cost;assignment=path.slice();
+          }
+          return;
         }
-      }
+        for(let j=0;j<prior.length;j++){
+          if(used.has(j)||distances[i][j]>=IDLE_RECOVERY_MATCH_RADIUS)continue;
+          used.add(j);path.push(j);
+          walk(i+1,count+1,cost+distances[i][j],path);
+          path.pop();used.delete(j);
+        }
+        path.push(-1);walk(i+1,count,cost,path);path.pop();
+      };
+      walk(0,0,0,[]);
+    } else {
+      // Bound work on pathological model output; retain conservative nearest
+      // matching rather than exponential search on the phone.
+      const used=new Set<number>();
+      assignment=distances.map(row=>{
+        let nearest=-1,best=IDLE_RECOVERY_MATCH_RADIUS;
+        for(let j=0;j<row.length;j++){
+          if(!used.has(j)&&row[j]<best){nearest=j;best=row[j];}
+        }
+        if(nearest>=0)used.add(nearest);
+        return nearest;
+      });
+    }
+    for (let i=0;i<sorted.length;i++) {
+      const tip=sorted[i],nearest=assignment[i];
       if (nearest >= 0) usedPrior.add(nearest);
       const previous = nearest >= 0 ? prior[nearest] : null;
       next.push({
