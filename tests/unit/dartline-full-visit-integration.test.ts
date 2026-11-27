@@ -223,9 +223,11 @@ describe('camera reports -> server tracker -> match -> verified takeout -> next 
         const m=g.state(),key=[m.id,m.legs.length,m.visits.length,m.currentPlayerIndex].join(':');
         visual.startNextVisit();photo.reset();
         let image=empty;
-        visual.observe(noisy(image,0),0,step());
-        visual.observe(noisy(image,1),0,step());
-        tracker.observe(noisy(image,1),now,undefined,0,empty);
+        visual.observe(noisy(image,0),0,step(),true);
+        visual.observeLocatedEmpty(noisy(image,0),true,now);
+        visual.observe(noisy(image,1),0,step(350),true);
+        expect(visual.observeLocatedEmpty(noisy(image,1),true,now)).toBe(true);
+        tracker.prime(visual.emptyReference!);
         // Separate visible, clustered and just-outside-double-ring hits.
         for(const [index,x,y] of [[0,100,80],[1,105,86],[2,126,30]]){
           image=shaft(image,x,y);
@@ -233,21 +235,21 @@ describe('camera reports -> server tracker -> match -> verified takeout -> next 
           for(let n=0;n<4;n++){
             const shot=noisy(image,n);
             const guess=tracker.observe(shot,step(),undefined,index,empty);
-            visual.observe(shot,index,now);
+            visual.observe(shot,index,now,true);
             if(guess){estimate=scorePhysicalDart(guess,project);if(estimate)break;}
           }
           expect(estimate,'turn '+turn+' dart '+index).not.toBeNull();
           expect(g.session.addEstimatedTip('phone-1',{x:estimate!.x,y:estimate!.y,confidence:.85},key,index)).toBe(true);
           expect(g.darts()).toBe(index+1);
-          visual.observe(image,index+1,step());
+          visual.observe(image,index+1,step(),true);
           tracker.observe(image,now,undefined,index+1,empty);
         }
         expect(g.state().currentVisit!.darts[2].score.label).toBe('miss');
-        visual.observe(noisy(empty,0),3,step());
+        visual.observe(noisy(empty,0),3,step(),true);
         let sent=0;
         for(let n=0;n<14 && g.darts()===3;n++){
           const shot=noisy(empty,n);
-          visual.observe(shot,3,step());
+          visual.observe(shot,3,step(),true);
           const clear=visual.matchesCurrentEmpty(shot,3);
           if(clear&&photo.claim(key,now,true,true,++frameId)){
             g.session.addTips('phone-1',[]);sent++;
