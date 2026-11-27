@@ -259,8 +259,8 @@ def verify(root: Path) -> None:
               (root/'src/client/lib/physicalBoardImpact.ts').read_text(encoding='utf-8')
         ),
         'Release marker and visible version match': (
-            marker == 'dartline-v6-physical-board-miss-recovery-DRAFT-DO-NOT-DEPLOY'
-            and 'DARTLINE v6 RC · NOT RELEASED' in hud
+            marker == 'dartline-v6.1-camera-noise-cluster-recovery-RC'
+            and 'DARTLINE v6.1 RC · NOT RELEASED' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
