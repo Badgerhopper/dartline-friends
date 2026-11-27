@@ -236,7 +236,9 @@ def verify(root: Path) -> None:
             and 'photoTakeoutPriority.current) return;' in scorer
         ),
         'Old empty report is forbidden from combining with much later photos': (
-            'PHOTO_CLEAR_INTERRUPTED_WAIT_MS=4700' in
+            'PHOTO_CLEAR_PAIR_MAX_GAP_MS=2500' in
+              (root/'src/client/lib/photoTakeoutConfirm.ts').read_text(encoding='utf-8')
+            and 'PHOTO_CLEAR_INTERRUPTED_WAIT_MS=4700' in
               (root/'src/client/lib/photoTakeoutConfirm.ts').read_text(encoding='utf-8')
             and 'PHOTO_CLEAR_MAX_PAIRS=2' in
               (root/'src/client/lib/photoTakeoutConfirm.ts').read_text(encoding='utf-8')
