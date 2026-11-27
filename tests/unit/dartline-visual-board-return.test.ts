@@ -148,6 +148,23 @@ describe('physical empty-board return evidence does not depend on AI or hand mot
    for(const time of [2000,2400,2800,3400])
      expect(gate.observe(empty,3,time)).toBe(false);
  });
+ it('preserves the empty reference after a preceding manual submission',()=>{
+   const gate=new VisualBoardReturn(),empty=frame(),full=addDart(empty);
+   gate.observe(empty,0,1000);gate.observe(empty,0,1200);
+   gate.observe(full,3,1800);gate.startNextVisit();
+   gate.observe(full,0,2300);gate.observe(full,3,2600);
+   gate.observe(empty,3,3000);
+   expect(gate.observe(empty,3,3700)).toBe(true);
+ });
+ it('tolerates scattered small compression clusters',()=>{
+   const gate=new VisualBoardReturn(),empty=frame(),full=addDart(empty),noise=frame();
+   for(let y=8;y<248;y+=16)for(let x=8;x<248;x+=16){
+     for(let i=0;i<2;i++)noise.data[(y*SIZE+x+i)*4]=170;
+   }
+   gate.observe(empty,0,1000);gate.observe(empty,0,1300);
+   gate.observe(full,3,1800);gate.observe(noise,3,2400);
+   expect(gate.observe(noise,3,3150)).toBe(true);
+ });
  it('recognizes a colored dart with unchanged mean brightness and detects its removal',()=>{
    const gate=new VisualBoardReturn(),empty=frame(),full=frame();
    for(let y=40;y<180;y++)for(let x=100;x<104;x++){
