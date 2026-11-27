@@ -91,6 +91,39 @@ describe('camera reports -> server tracker -> match -> verified takeout -> next 
     }finally{g.close();}
   });
 
+  it('accepts one occluded estimate for the exact live visit and does not duplicate a later model sighting',()=>{
+    const g=game();
+    try{
+      const first=point(500000,220000),second=point(506000,220000);
+      g.session.addTips('phone-1',[first]);
+      const m=g.state();
+      const key=[m.id,m.legs.length,m.visits.length,m.currentPlayerIndex].join(':');
+      expect(g.session.addEstimatedTip('wrong-camera',second,key,1)).toBe(false);
+      expect(g.session.addEstimatedTip('phone-1',second,'stale',1)).toBe(false);
+      expect(g.session.addEstimatedTip('phone-1',second,key,1)).toBe(true);
+      expect(g.darts()).toBe(2);
+      expect(g.state().currentVisit!.darts[1].detection?.estimated).toBe(true);
+      expect(g.session.addEstimatedTip('phone-1',second,key,1)).toBe(false);
+      g.session.addTips('phone-1',[first,second]);
+      expect(g.darts()).toBe(2);
+      g.session.addTips('phone-1',[first,second,point(420000,225000)]);
+      expect(g.darts()).toBe(3);
+      g.submitAfterTakeout();
+      expect(g.state().visits).toHaveLength(1);
+      expect(g.session.addEstimatedTip('phone-1',second,key,2)).toBe(false);
+    }finally{g.close();}
+  });
+  it('rejects the estimate if normal AI has already scored that throw',()=>{
+    const g=game();
+    try{
+      const first=point(500000,220000),second=point(550000,220000);
+      g.session.addTips('phone-1',[first]);
+      const m=g.state(),key=[m.id,m.legs.length,m.visits.length,m.currentPlayerIndex].join(':');
+      g.session.addTips('phone-1',[first,second]);
+      expect(g.session.addEstimatedTip('phone-1',second,key,1)).toBe(false);
+      expect(g.darts()).toBe(2);
+    }finally{g.close();}
+  });
   it('will not auto-submit after fewer than 3 darts, even with timed empty reports',()=>{
     const g=game();
     try{
