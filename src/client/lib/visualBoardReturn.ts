@@ -192,6 +192,7 @@ export class VisualBoardReturn {
   }
   get changedFraction():number{return this.lastComparison;}
   get emptyReference():TemporalFrame|null{return this.empty;}
+  get regionMask():Uint8Array|null{return this.roi;}
   get hasRegion():boolean{return this.roi!==null;}
   get hasEmptyReference():boolean{return this.empty!==null;}
   get hasSeenPhysicalDarts():boolean{return this.occupied;}
