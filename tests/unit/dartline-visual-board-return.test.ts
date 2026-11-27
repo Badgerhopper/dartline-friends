@@ -80,6 +80,31 @@ describe('physical empty-board return evidence does not depend on AI or hand mot
    expect(gate.observe(thin,3,3150)).toBe(false);
    expect(gate.matchesCurrentEmpty(thin,3)).toBe(false);
  });
+ it('ignores moving background outside the calibrated physical board region',()=>{
+   const gate=new VisualBoardReturn(),empty=frame(),full=addDart(empty),background=frame();
+   const roi=new Uint8Array(SIZE*SIZE);
+   for(let y=20;y<235;y++)for(let x=20;x<235;x++)roi[y*SIZE+x]=1;
+   for(let y=0;y<256;y++)for(let x=0;x<16;x++){
+     const k=(y*SIZE+x)*4;
+     background.data[k]=220;background.data[k+1]=210;background.data[k+2]=200;
+   }
+   gate.setRegion(roi);
+   gate.observe(empty,0,1000);gate.observe(empty,0,1300);
+   gate.observe(full,2,1600);gate.observe(full,3,1900);
+   gate.observe(background,3,2400);
+   expect(gate.observe(background,3,3150)).toBe(true);
+   expect(gate.matchesCurrentEmpty(background,3)).toBe(true);
+ });
+ it('requires a new stable clear after an intervening occupied frame',()=>{
+   const gate=new VisualBoardReturn(),empty=frame(),full=addDart(empty);
+   gate.observe(empty,0,1000);gate.observe(empty,0,1300);
+   gate.observe(full,3,1800);gate.observe(empty,3,2400);
+   expect(gate.observe(empty,3,3150)).toBe(true);
+   gate.observe(full,3,3400);
+   expect(gate.matchesCurrentEmpty(empty,3)).toBe(false);
+   expect(gate.observe(empty,3,3600)).toBe(false);
+   expect(gate.observe(empty,3,4300)).toBe(true);
+ });
  it('will not submit merely because the model predicted an empty board',()=>{
    const gate=new VisualBoardReturn(),empty=frame();
    gate.observe(empty,0,1000);gate.observe(empty,0,1300);
