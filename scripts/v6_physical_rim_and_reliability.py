@@ -110,6 +110,27 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
       'try { latestOnTips.current(relaxed.tips,Math.round(frame.ms)); }',
       'try { latestOnTips.current(onBoardTips,Math.round(frame.ms)); }')
 
+    # Motion recognition still ran expensive neural scans during retrieval
+    # even though the publication guard discarded them. Keep the verifier
+    # in charge of the only model calls during a full visit.
+    runtime=root/'src/client/vision/visionRuntime.ts'
+    patch(runtime,
+      '  infer: () => Promise<BoardTip[]>;',
+      """  infer: () => Promise<BoardTip[]>;
+  setRetrieving: (retrieving:boolean)=>void;""")
+    patch(runtime,
+      '  let busy = false;',
+      '  let busy = false;\n  let retrieving = false;')
+    patch(runtime,
+      '    onTrigger: () => { void infer(); },',
+      '    onTrigger: () => { if(!retrieving)void infer(); },')
+    patch(runtime,
+      '    infer,\n    inferPositiveOnly:',
+      '    infer,\n    setRetrieving: value => {retrieving=value;},\n    inferPositiveOnly:')
+    patch(scorer,
+      '        takeoutExclusive.current=enabled;\n        setTakeoutMonitorArmed(enabled);',
+      '        takeoutExclusive.current=enabled;\n        vision.runtimeRef.current?.setRetrieving(enabled);\n        setTakeoutMonitorArmed(enabled);')
+
     # Geometry-qualified occlusion candidates go through a dedicated,
     # atomic server count/visit check rather than guessing another raw AI tip.
     patch(scorer,
