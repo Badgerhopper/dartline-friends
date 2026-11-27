@@ -16,7 +16,7 @@ export const IDLE_RECOVERY_MAX_GAP_MS = 7500;
 export const IDLE_RECOVERY_MATCH_RADIUS = 14500; // 6.54mm board plane
 export const IDLE_RECOVERY_MIN_CONFIDENCE = 0.50;
 export const IDLE_RECOVERY_STRONG_CONFIDENCE = 0.80;
-export const IDLE_RECOVERY_OUTER_MISS_CONFIDENCE = 0.85;
+export const IDLE_RECOVERY_OUTER_MISS_CONFIDENCE = 0.50;
 
 type Candidate = {
   observations: BoardTip[];
@@ -33,8 +33,8 @@ function valid(tip: BoardTip): boolean {
     tip.x >= 0 && tip.x <= 1_000_000 &&
     tip.y >= 0 && tip.y <= 1_000_000 &&
     tip.confidence >= IDLE_RECOVERY_MIN_CONFIDENCE &&
-    // Scan to the physical rim, not beyond. Require higher-confidence
-    // independently repeated model tips for the no-score outer annulus.
+    // Scan to the physical rim, not beyond. Low-confidence outer-ring
+    // candidates still require three independent completed inferences.
     boardImpactRegion(tip.x,tip.y)!=='outside' &&
     (boardImpactRegion(tip.x,tip.y)!=='miss' ||
        tip.confidence >= IDLE_RECOVERY_OUTER_MISS_CONFIDENCE);
