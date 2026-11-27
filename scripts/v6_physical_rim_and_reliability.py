@@ -71,13 +71,15 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch } from 
         const p=undistortNormalizedPoint([gx,gy],lens);
         return transformPoint(p,frame.result.homography);
       };
+      // Preserve the last settled baseline while board pose is temporarily lost.
+      if(!runtime?.camera.active || !frame?.result)return;
       const guess=temporalDartTracker.current.observe(image,now,
         (gx,gy)=>{
           const point=project(gx,gy);
           return point!==null && boardImpactRegion(point[0],point[1])!=='outside';
         });
       if(!guess || !runtime?.camera.active || !frame?.result)return;
-      rapidVisualRecovery.current.newPhysicalDart(now);
+      rapidVisualRecovery.current.newPhysicalDart(now,guess.obscured||guess.confidence<0.80);
       const board=project(guess.x,guess.y);
       if(!board || !board.every(Number.isFinite))return;""")
     patch(scorer,
