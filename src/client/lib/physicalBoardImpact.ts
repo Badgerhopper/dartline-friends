@@ -1,5 +1,6 @@
 import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';
 import type {TemporalGuess} from './temporalDartEvidence';
+import type {BoardTip} from '../../shared/vision/types';
 
 /** Geometry must follow the PHYSICAL face of the dartboard.
  * A projected point beyond that rim is not a miss to score automatically:
@@ -35,4 +36,16 @@ export function strongNewPhysicalMiss(
     && Number.isFinite(guess.changeFraction)
     && guess.changeFraction>=0.00015
     && guess.changeFraction<0.045;
+}
+
+/** null means every observed 'tip' was OFF the physical board. Do not send
+ * [] to the scoring server in that case: [] is an entirely different signal
+ * meaning an independently verified EMPTY BOARD and could end a visit.
+ * A genuinely empty model prediction stays [] so existing takeout control
+ * can make its own separate safety decision.
+ */
+export function physicalBoardTipBatch(tips:readonly BoardTip[]):BoardTip[]|null {
+  if(!tips.length)return [];
+  const accepted=tips.filter(t=>boardImpactRegion(t.x,t.y)!=='outside');
+  return accepted.length ? accepted : null;
 }
