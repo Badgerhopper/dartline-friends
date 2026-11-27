@@ -7,6 +7,7 @@ export const CLEAR_BOARD_MAX_GAP_MS = 4500;
 export class VerifiedBoardClear {
   private firstEmptyAt: number | null = null;
   private confirmed = 0;
+  get confirmations():number{return this.confirmed;}
   reset(): void {
     this.firstEmptyAt = null;
     this.confirmed = 0;
