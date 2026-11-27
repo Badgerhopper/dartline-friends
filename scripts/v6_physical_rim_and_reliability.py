@@ -418,6 +418,58 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       </details>
       <div className="dartline-hud-slot-hint">""")
 
+    # A single explicit player-confirmed empty photo is a recovery path
+    # if the automatic initial reference could not be established. Never
+    # arm/submit a visit from this button. Keep all pixels inside the phone.
+    patch(scorer,
+      "      if (event.data?.type !== 'dartline:visit-context') return;",
+      """      if(event.data?.type==='dartline:confirm-empty-reference'){
+        const ctx=visitContext.current,now=Date.now();
+        const image=latestCameraSnapshot.current;
+        if(ctx.key===event.data.key && ctx.active && ctx.dartsRecorded===0 &&
+           image && now-latestCameraAt.current<=750 &&
+           lastLocatedAt.current>0 && now-lastLocatedAt.current<=12000 &&
+           locatedVideoSource.current===vision.refs.video.current?.srcObject &&
+           visualBoardReturn.current.confirmUserEmpty(image,0)){
+          temporalDartTracker.current.prime(image);
+          trace('Empty board reference confirmed by player');
+        } else trace('Empty reference not captured: need active zero-dart visit and located live camera');
+        return;
+      }
+      if (event.data?.type !== 'dartline:visit-context') return;""")
+    patch(scorer,
+      '      cameraTrace: [',
+      '      emptyReferenceReady: visualBoardReturn.current.hasEmptyReference,\n      cameraTrace: [')
+    patch(dock,
+      '        cameraTrace: Array.isArray(data.cameraTrace)?',
+      '        emptyReferenceReady: data.emptyReferenceReady===true,\n        cameraTrace: Array.isArray(data.cameraTrace)?')
+    patch(dock,
+      "  const [report, setReport] = useState<ScorerReport | null>(null);",
+      """  useEffect(()=>{
+    const confirm=(event:Event)=>{
+      const key=(event as CustomEvent<{key:string}>).detail?.key;
+      if(key && key===currentVisit.current.key && currentVisit.current.active &&
+         currentVisit.current.dartsRecorded===0)
+        frame.current?.contentWindow?.postMessage({type:'dartline:confirm-empty-reference',key},window.location.origin);
+    };
+    window.addEventListener('dartline:confirm-empty-reference',confirm);
+    return ()=>window.removeEventListener('dartline:confirm-empty-reference',confirm);
+  },[]);
+  const [report, setReport] = useState<ScorerReport | null>(null);""")
+    patch(health,
+      '  cameraTrace?:string[];',
+      '  cameraTrace?:string[];\n  emptyReferenceReady?:boolean;')
+    patch(hud,
+      '      <details className="dartline-hud-slot-hint" style={{display:',
+      """      {autoTakeout && ownsVisit && darts.length===0 && cameraReport?.emptyReferenceReady===false &&
+        <div className="dartline-hud-slot-hint">
+          <span>Empty-board reference not acquired. If the board is completely empty:</span>
+          <button type="button" onClick={()=>window.dispatchEvent(new CustomEvent(
+            'dartline:confirm-empty-reference',{detail:{key:visitIdentity}}))}>
+            Set empty-board reference
+          </button>
+        </div>}
+      <details className="dartline-hud-slot-hint" style={{display:""")
     (root/'src/client/public/dartline-build.txt').write_text(
       'dartline-v6.3.2-verified-reference-RC\n',
       encoding='utf-8')
