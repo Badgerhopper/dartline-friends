@@ -87,7 +87,7 @@ def verify(root: Path) -> None:
             and 'allowVerifiedEmpty.current=true' in scorer
             and 'mayPublishScorerTips({' in scorer
             and 'explicitlyVerified:allowVerifiedEmpty.current' in scorer
-            and 'relaxed.tips.length' in scorer
+            and 'onBoardTips.length' in scorer
             and 'takeoutScene.current.observe(gray,Date.now(),' in scorer
             and 'fastBoardClear.current.noteRetrievalMotion()' in scorer
             and 'this.sawRetrievalMotion' in
@@ -159,7 +159,7 @@ def verify(root: Path) -> None:
         'Only the verified takeout scanner may report tips while armed': (
             'mayPublishScorerTips({' in scorer
             and 'explicitlyVerified:allowVerifiedEmpty.current' in scorer
-            and 'try { latestOnTips.current(relaxed.tips,Math.round(frame.ms)); }' in scorer
+            and 'try { latestOnTips.current(onBoardTips,Math.round(frame.ms)); }' in scorer
             and 'FAST_CLEAR_INFERENCE_STALL_MS = 6500' in
               (root/'src/client/lib/fastBoardClear.ts').read_text(encoding='utf-8')
         ),
