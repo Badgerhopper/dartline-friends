@@ -34,15 +34,22 @@ def install(root:Path):
     patch(scorer,
       "import { TemporalDartTracker, readTemporalCamera, TEMPORAL_POLL_MS, type TemporalFrame } from '../../lib/temporalDartEvidence';",
       """import { TemporalDartTracker, readTemporalCamera, TEMPORAL_POLL_MS, type TemporalFrame } from '../../lib/temporalDartEvidence';
-import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physicalBoardMask, scorePhysicalDart } from '../../lib/physicalBoardImpact';""")
+import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physicalBoardMask, scorePhysicalDart, OuterMissConfirmation } from '../../lib/physicalBoardImpact';""")
     patch(scorer,
       "  const onTipsWithMeter = useCallback((tips: BoardTip[], ms: number) => {",
-      """  const onTipsWithMeter = useCallback((tips: BoardTip[], ms: number) => {
+      """  const outerMissConfirmation=useRef(new OuterMissConfirmation());
+  const onTipsWithMeter = useCallback((tips: BoardTip[], ms: number) => {
     // Reject keypoints mapped outside the ACTUAL circular dartboard face.
     // An off-board false positive must NEVER become a fake empty takeout.
     const onBoard=physicalBoardTipBatch(tips);
     if(onBoard===null)return;
-    tips=onBoard;""")
+    tips=onBoard;
+    if(tips.length&&!takeoutExclusive.current&&!tips.some(t=>t.estimate)){
+      const confirmed=outerMissConfirmation.current.filter(tips,scoringVisitKey.current,
+        vision.frameRef.current,Date.now());
+      if(confirmed===null){trace('Model MISS waiting for independent confirmation');return;}
+      tips=confirmed;
+    }""")
     patch(scorer,
       """      const guess=temporalDartTracker.current.observe(image,now);
       if(!guess)return;
@@ -160,7 +167,8 @@ import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence
       // Outer annulus:""",
       """      const result=scoreFromBoardCoords(x,y);
       const physical=scorePhysicalDart(guess,project);
-      if(physical && guess.recordedBefore===ctx.dartsRecorded &&
+      if(physical && (physical.label!=='miss'||strongNewPhysicalMiss(x,y,guess)) &&
+         guess.recordedBefore===ctx.dartsRecorded &&
          ctx.dartsRecorded<3 && decodedFrameId!==null &&
          locatedVideoSource.current===stream &&
          lastLocatedAt.current>0 && now-lastLocatedAt.current<=12000){
@@ -172,6 +180,14 @@ import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence
         return;
       }
       // Outer annulus:""")
+    # The old raw MISS branch bypassed the expected-count and provenance
+    # safeguards. It is superseded by the atomic estimated-dart route.
+    patch(scorer,
+      """      if(strongNewPhysicalMiss(x,y,guess)){
+        latestOnTips.current([{x,y,confidence:guess.confidence}],0);
+        return;
+      }""",
+      """      // No unqualified zero can bypass the atomic physical hit route.""")
     patch(scorer,
       '    if(tips.length && !takeoutExclusive.current){',
       '    if(tips.length && !takeoutExclusive.current && !tips.some(t=>t.estimate)){')
