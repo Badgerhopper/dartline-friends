@@ -43,6 +43,18 @@ describe('physical empty-board return evidence does not depend on AI or hand mot
    gate.observe(empty,3,3400);
    expect(gate.observe(empty,3,4100)).toBe(true);
  });
+ it('photo proof is valid only while the CURRENT frame matches the original clear board',()=>{
+   const verifier=new VisualBoardReturn(),clear=frame(),darts=addDart(clear),hand=frame(200);
+   verifier.observe(clear,0,1000);verifier.observe(clear,0,1300);
+   verifier.observe(darts,1,1600);verifier.observe(darts,3,1900);
+   verifier.observe(clear,3,2500);verifier.observe(clear,3,3300);
+   expect(verifier.matchesCurrentEmpty(clear,3)).toBe(true);
+   expect(verifier.matchesCurrentEmpty(darts,3)).toBe(false);
+   expect(verifier.matchesCurrentEmpty(hand,3)).toBe(false);
+   expect(verifier.matchesCurrentEmpty(clear,2)).toBe(false);
+   verifier.reset();
+   expect(verifier.matchesCurrentEmpty(clear,3)).toBe(false);
+ });
  it('will not submit merely because the model predicted an empty board',()=>{
    const gate=new VisualBoardReturn(),empty=frame();
    gate.observe(empty,0,1000);gate.observe(empty,0,1300);

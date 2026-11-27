@@ -44,7 +44,7 @@ jobs:
           marker="$(curl -fLsS --retry 2 --retry-delay 5 --max-time 75 \
             'https://dartline-friends.onrender.com/dartline-build.txt' 2>/dev/null || true)"
           echo "LIVE_RENDER_MARKER=${marker:-unreachable}"
-          if [ "$marker" != 'dartline-v5.2-visual-dedupe-fast-recovery-2026-11-26' ]; then
+          if [ "$marker" != 'dartline-v5.3-camera-recovery-photo-submit-2026-11-26' ]; then
             echo "::warning::Render is not confirmed to be serving the new checkout and mobile-screen release."
             exit 1
           fi

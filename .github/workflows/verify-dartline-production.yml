@@ -1,0 +1,34 @@
+name: Verify DartLine production release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-deployment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Verify Render is serving the exact updated phone app
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="dartline-v5.3-camera-recovery-photo-submit-2026-11-26"
+          url="https://dartline-friends.onrender.com/dartline-build.txt"
+          echo "Checking live DartLine build against $expected"
+          for attempt in $(seq 1 24); do
+            observed="$(curl -fLsS --retry 1 --max-time 22 \
+              -H 'Cache-Control: no-cache' "$url?verify=$GITHUB_SHA-$attempt" \
+              2>/dev/null || true)"
+            echo "Attempt $attempt: live version = ${observed:-unreachable}"
+            if [ "$observed" = "$expected" ]; then
+              echo "Production release confirmed: real Render service is v5.3"
+              exit 0
+            fi
+            if [ "$attempt" -lt 24 ]; then sleep 30; fi
+          done
+          echo "::error::Production did not update to $expected. Check Render dashboard Deploys, branch and auto-deploy settings. A green code build is not a live deployment."
+          exit 1

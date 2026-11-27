@@ -29,6 +29,11 @@ function difference(a:TemporalFrame,b:TemporalFrame):number {
     bs.push(b.data[k+2]-a.data[k+2]);
   }
   const ro=median(rs),go=median(gs),bo=median(bs);
+  // Uniformly occluded camera frames, overexposure or a covered lens
+  // cannot be treated as the original empty board. The same subtraction
+  // that makes modest auto-exposure changes harmless otherwise erases
+  // the evidence of a FULL-frame obstruction.
+  if(Math.max(Math.abs(ro),Math.abs(go),Math.abs(bo))>45) return 1;
   let changed=0,total=0;
   for(let i=0;i<n;i+=SAMPLE_STEP){
     const k=i*4;
@@ -87,6 +92,13 @@ export class VisualBoardReturn {
       this.confirmed=true;return true;
     }
     return false;
+  }
+  /** Strong proof is tied to THIS photo, not just a prior confirmed event.
+   * A moved camera, new dart or hand in the frame cannot reuse old proof. */
+  matchesCurrentEmpty(frame:TemporalFrame,recordedDarts:number):boolean {
+    return recordedDarts===3 && this.confirmed && this.occupied &&
+      this.empty!==null && frame.width===256 && frame.height===256 &&
+      difference(this.empty,frame)<=BOARD_RETURN_MAX_EMPTY_CHANGED;
   }
   get hasEmptyReference():boolean{return this.empty!==null;}
   get hasSeenPhysicalDarts():boolean{return this.occupied;}
