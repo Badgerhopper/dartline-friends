@@ -67,7 +67,7 @@ describe('iPhone camera freshness proof',()=>{
    proof.sample(x.video,1000);x.fire();
    x.pause();
    expect(proof.sample(x.video,1200)).toBeNull();
-   x.video.readyState=2;
+   (x.video as unknown as {readyState:number}).readyState=2;
    (x.video as unknown as {requestVideoFrameCallback?:Callback}).requestVideoFrameCallback=undefined;
    expect(proof.sample(x.video,1300)).toBeNull();
  });
