@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {BOARD_CENTER,BOARD_MAX} from '../../src/shared/boardGeometry';
 import {boardImpactRegion,PHYSICAL_BOARD_EDGE,PHYSICAL_DOUBLE_EDGE,
- strongNewPhysicalMiss,physicalBoardTipBatch,scoreHiddenTip,physicalBoardMask} from '../../src/client/lib/physicalBoardImpact';
+ strongNewPhysicalMiss,physicalBoardTipBatch,scoreHiddenTip,physicalBoardMask,scorePhysicalDart} from '../../src/client/lib/physicalBoardImpact';
 const at=(r:number)=>[BOARD_CENTER+r,BOARD_CENTER] as const;
 const guess={confidence:0.77,length:37,area:43,
  obscured:false,changeFraction:0.003};
@@ -27,6 +27,24 @@ describe('shaft extrapolation uncertainty',()=>{
    expect(mask[0]).toBe(0);
    expect(mask[8*16+8]).toBe(1);
    expect(mask[15*16+15]).toBe(0);
+ });
+});
+describe('physical fallback when the neural network returns no tip',()=>{
+ const project=(x:number,y:number)=>[x*1000000,y*1000000];
+ const shaft={x:.5,y:.66,confidence:.79,length:30,area:80,changeFraction:.003,
+   obscured:false,axis:{x:0,y:1,ratio:2}};
+ it('scores a visible unrecognized dart including the first of a turn',()=>{
+   expect(scorePhysicalDart(shaft,project)?.label).toBe('S20');
+ });
+ it('scores a new physical dart barely beyond the double ring',()=>{
+   expect(scorePhysicalDart({...shaft,y:.879},project)?.label).toBe('miss');
+ });
+ it('never promotes a spare on the wall',()=>{
+   expect(scorePhysicalDart({...shaft,x:.97,y:.9},project)).toBeNull();
+ });
+ it('gives an editable best estimate for a physically witnessed occlusion',()=>{
+   const g={...shaft,obscured:true,y:.73,hiddenRange:{startX:.5,startY:.70,endX:.5,endY:.76}};
+   expect(scorePhysicalDart(g,project)).not.toBeNull();
  });
 });
 describe('circular physical-board-only automatic miss zone',()=>{
