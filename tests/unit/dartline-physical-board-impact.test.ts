@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {BOARD_CENTER,BOARD_MAX} from '../../src/shared/boardGeometry';
 import {boardImpactRegion,PHYSICAL_BOARD_EDGE,PHYSICAL_DOUBLE_EDGE,
- strongNewPhysicalMiss} from '../../src/client/lib/physicalBoardImpact';
+ strongNewPhysicalMiss,physicalBoardTipBatch} from '../../src/client/lib/physicalBoardImpact';
 const at=(r:number)=>[BOARD_CENTER+r,BOARD_CENTER] as const;
 const guess={confidence:0.77,length:37,area:43,
  obscured:false,changeFraction:0.003};
@@ -22,6 +22,14 @@ describe('circular physical-board-only automatic miss zone',()=>{
    expect(strongNewPhysicalMiss(...nearCorner,guess)).toBe(false);
    expect(boardImpactRegion(-100,500000)).toBe('outside');
    expect(boardImpactRegion(Infinity,500000)).toBe('outside');
+ });
+ it('an off-board tip never becomes a fake empty board report',()=>{
+   const wall={x:999900,y:500000,confidence:0.99};
+   const board={x:800000,y:500000,confidence:0.86};
+   expect(physicalBoardTipBatch([])).toEqual([]);
+   expect(physicalBoardTipBatch([wall])).toBeNull();
+   expect(physicalBoardTipBatch([wall,board])).toEqual([board]);
+   expect(physicalBoardTipBatch([board])).toEqual([board]);
  });
  it('requires a newly arrived physical shaft and rejects hands / lighting',()=>{
    const p=at(PHYSICAL_DOUBLE_EDGE+18000);
