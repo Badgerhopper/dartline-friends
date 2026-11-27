@@ -14,7 +14,7 @@ export const VISUAL_DUPLICATE_MAX_CHANGED=0.0007;
 export const VISUAL_DUPLICATE_RETRY_MS=2400;
 export const VISUAL_DUPLICATE_TIP_RADIUS=14500;
 export const RAPID_RECOVERY_POLL_MS=125;
-export const RAPID_RECOVERY_FAST_GAP_MS=550;
+export const RAPID_RECOVERY_FAST_GAP_MS=800; // match IdleTipRecovery's independent-sample gate
 export const RAPID_RECOVERY_NORMAL_GAP_MS=950;
 export const RAPID_RECOVERY_HINT_LIFETIME_MS=3800;
 
