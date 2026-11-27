@@ -21,6 +21,9 @@ export const PHOTO_CLEAR_MAX_PAIRS=2;
 // After an interrupted pair, we must not let an OLD first server vote
 // combine with the first vote of a newly started pair.
 export const PHOTO_CLEAR_INTERRUPTED_WAIT_MS=4700;
+// The two confirmed empty photos must belong to the same continuous
+// camera-clearance event, not minutes apart after Safari resumed.
+export const PHOTO_CLEAR_PAIR_MAX_GAP_MS=2500;
 
 export class PhotoTakeoutConfirm {
   private visit='';
@@ -64,6 +67,11 @@ export class PhotoTakeoutConfirm {
       return false;
     }
     if(this.totalPairs>=PHOTO_CLEAR_MAX_PAIRS)return false;
+    // If the camera stopped between the two votes, this is no longer
+    // one continuous photo-clearance event. Let the server's old first vote
+    // expire before starting over, exactly as for a visible obstruction.
+    if(this.sent===1 && now-this.lastSentAt>PHOTO_CLEAR_PAIR_MAX_GAP_MS)
+      this.invalidate(visit,now);
     if(now<this.blockedUntil)return false;
     // Even a 900ms timer cannot make one frozen video frame independent.
     if(decodedFrameId<=this.lastFrameId)return false;
