@@ -236,7 +236,7 @@ export class TemporalDartTracker {
     // Compression noise and minor flicker are often scattered across the
     // board. A coherent moving component, not ten arbitrary pixels, is
     // what should prevent a settled throw from being evaluated.
-    const coherentMotion=motion>0.008 || (motion>0.00015 &&
+    const coherentMotion=motion>0.025 || (motion>0.00015 &&
       components(moving.bin,frame.width,frame.height).some(p=>p.length>=16));
     // Even a narrow new shaft changes much less than 1% of 256px pixels.
     // 1.2% incorrectly marked the actual arrival as a quiet frame.
