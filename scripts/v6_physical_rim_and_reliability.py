@@ -119,6 +119,9 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
       '    if(tips.length && !takeoutExclusive.current){',
       '    if(tips.length && !takeoutExclusive.current && !tips.some(t=>t.estimate)){')
 
+    patch(scorer,
+      '        visualBoardReturn.current.reset();\n        photoTakeoutConfirm.current.reset();',
+      '        visualBoardReturn.current.startNextVisit();\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
     # Install the calibrated physical-board region once per visit, not once
     # per camera frame. Takeout still requires the occupied/empty sequence.
     patch(scorer,
@@ -174,14 +177,17 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
     session=root/'src/server/scoring/session.ts'
     patch(session,
       "import { DartTracker } from './tracker';",
-      "import { DartTracker } from './tracker';\\nimport { scoreFromBoardCoords } from '../../shared/scoring';")
+      "import { DartTracker } from './tracker';\\nimport { scoreFromBoardCoords } from '../../shared/scoring';\nimport {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';")
     patch(session,
       '  /** The whole camera roster, as the device registry currently sees it. */',
       """  /** A new physical shaft with a bounded hidden-tip estimate. Unlike a
    * regular batch, this is checked atomically against the live match and
    * accepted only for the exact pre-throw count. No replay or late AI race. */
   addEstimatedTip(deviceId:string,tip:BoardTip,key:string,expectedCount:number):boolean {
-    if(!this.cameras.has(deviceId)||this.cameras.size!==1)return false;
+    if(!this.cameras.has(deviceId)||this.cameras.size!==1||
+       !Number.isFinite(tip.x)||!Number.isFinite(tip.y)||!Number.isFinite(tip.confidence)||
+       tip.confidence<.75||tip.confidence>1||
+       Math.hypot(tip.x-BOARD_CENTER,tip.y-BOARD_CENTER)>boardRadii(BOARD_MAX).boardOuter)return false;
     this.syncVisit();
     const match=this.playableMatch();
     if(!match||key!==[match.id,match.legs.length,match.visits.length,match.currentPlayerIndex].join(':')
