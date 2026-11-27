@@ -81,16 +81,16 @@ describe('rapid inference priority for a truly newly settled dart',()=>{
    scan.finished(1000,true);
    expect(scan.shouldProbe(1300,true)).toBe(false);
    scan.newPhysicalDart(1360);
-   expect(scan.shouldProbe(1799,true)).toBe(false);
-   expect(scan.shouldProbe(1800,true)).toBe(true);
-   scan.finished(1850,true);
+   expect(scan.shouldProbe(1549,true)).toBe(false);
+   expect(scan.shouldProbe(1550,true)).toBe(true);
+   scan.finished(1600,true);
    expect(scan.pendingFastProbes).toBe(1);
-   expect(scan.shouldProbe(2649,true)).toBe(false);
-   expect(scan.shouldProbe(2650,true)).toBe(true);
-   scan.finished(2700,true);
+   expect(scan.shouldProbe(2149,true)).toBe(false);
+   expect(scan.shouldProbe(2150,true)).toBe(true);
+   scan.finished(2200,true);
    expect(scan.pendingFastProbes).toBe(0);
-   expect(scan.shouldProbe(3649,true)).toBe(false);
-   expect(scan.shouldProbe(3650,true)).toBe(true);
+   expect(scan.shouldProbe(3149,true)).toBe(false);
+   expect(scan.shouldProbe(3150,true)).toBe(true);
  });
  it('the next rapid model sample is actually accepted by the scoring confirmation gate',()=>{
    const scan=new RapidVisualRecovery(),gate=new IdleTipRecovery();
@@ -101,6 +101,17 @@ describe('rapid inference priority for a truly newly settled dart',()=>{
    expect(scan.shouldProbe(next-1,true)).toBe(false);
    expect(scan.shouldProbe(next,true)).toBe(true);
    expect(gate.observe([tip(550300)],next)).toHaveLength(1);
+ });
+ it('an uncertain shaft keeps the fast path for three independent confirmations',()=>{
+   const scan=new RapidVisualRecovery();
+   scan.newPhysicalDart(1000,true);
+   expect(scan.pendingFastProbes).toBe(3);
+   scan.finished(1000,true);
+   expect(scan.shouldProbe(1550,true)).toBe(true);
+   scan.finished(1550,true);
+   expect(scan.shouldProbe(2100,true)).toBe(true);
+   scan.finished(2100,true);
+   expect(scan.pendingFastProbes).toBe(0);
  });
  it('busy inference never consumes a priority check',()=>{
    const scan=new RapidVisualRecovery();
