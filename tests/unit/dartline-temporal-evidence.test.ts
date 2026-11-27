@@ -110,6 +110,21 @@ describe('on-phone temporal shaft detector, independent of neural network',()=>{
    expect(extrapolateOccludedTip(shaft,empty,empty)).toEqual(shaft);
    expect(extrapolateOccludedTip({...shaft,axis:{x:1,y:0,ratio:2.5}},before,empty).hiddenRange).toBeUndefined();
  });
+ it('detects a dark metallic shaft and ignores isolated changing sensor pixels',()=>{
+   const tracker=new TemporalDartTracker(),a=blank(180),b=blank(180);
+   for(let x=60;x<115;x++)dot(b,x,105,1,133);
+   for(let x=106;x<120;x++)dot(b,x,105,4,133);
+   const noise=(f:TemporalFrame,offset:number)=>{
+     const out={...f,data:f.data.slice()};
+     for(let y=10;y<240;y+=12)for(let x=10;x<240;x+=12)
+       dot(out,x+offset,y,0,240);
+     return out;
+   };
+   tracker.observe(noise(a,0),1000);
+   expect(tracker.observe(noise(b,1),1200)).toBeNull();
+   expect(tracker.observe(noise(b,2),1400)).toBeNull();
+   expect(tracker.observe(noise(b,3),1600)).not.toBeNull();
+ });
  it('tracks a second dart partially overlapping an earlier shaft',()=>{
    const tracker=new TemporalDartTracker();const a=blank(),b=blank();
    dart(b,62,90);tracker.observe(a,1000);tracker.observe(b,1240);
