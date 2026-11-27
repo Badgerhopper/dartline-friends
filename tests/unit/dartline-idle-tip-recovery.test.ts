@@ -62,11 +62,26 @@ describe('DartLine fallback for throws with NO motion trigger',()=>{
     gate.observe([],9800);
     expect(gate.observe([tip(560000)],12000)).toEqual([]);
   });
-  it('does not score spurious out-of-ring misses on static scans',()=>{
+  it('never scores model tips outside the circular physical board',()=>{
     const gate=new IdleTipRecovery();
-    expect(gate.observe([tip(990000)],1000)).toEqual([]);
-    expect(gate.observe([tip(991000)],3200)).toEqual([]);
-    expect(gate.observe([tip(992000)],5400)).toEqual([]);
+    expect(gate.observe([tip(999900)],1000)).toEqual([]);
+    expect(gate.observe([tip(999900)],3200)).toEqual([]);
+    expect(gate.observe([tip(999900)],5400)).toEqual([]);
+    // Corner of square image/board coordinates is also outside the circle.
+    expect(gate.observe([tip(980000,980000)],7600)).toEqual([]);
+  });
+  it('recovers strong MISS tips between double ring and the board edge',()=>{
+    const gate=new IdleTipRecovery();
+    expect(gate.observe([tip(905000,500000,.91)],1000)).toEqual([]);
+    const recovered=gate.observe([tip(905600,500000,.93)],3200);
+    expect(recovered).toHaveLength(1);
+    expect(recovered[0].x).toBe(905300);
+  });
+  it('does not promote weak outside-double misses on repeated scans',()=>{
+    const gate=new IdleTipRecovery();
+    for(const [i,x] of [905000,905600,905400].entries()){
+      expect(gate.observe([tip(x,500000,.73)],1000+i*2200)).toEqual([]);
+    }
   });
   it('does not turn duplicate or fast consecutive callbacks into two observations',()=>{
     const gate=new IdleTipRecovery();
