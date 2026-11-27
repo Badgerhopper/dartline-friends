@@ -98,11 +98,11 @@ describe('DartLine fallback for throws with NO motion trigger',()=>{
     expect(recovered).toHaveLength(1);
     expect(recovered[0].x).toBe(905300);
   });
-  it('does not promote weak outside-double misses on repeated scans',()=>{
+  it('recovers a weak near-wire MISS only after three independent sightings',()=>{
     const gate=new IdleTipRecovery();
-    for(const [i,x] of [905000,905600,905400].entries()){
-      expect(gate.observe([tip(x,500000,.73)],1000+i*2200)).toEqual([]);
-    }
+    expect(gate.observe([tip(879000,500000,.73)],1000)).toEqual([]);
+    expect(gate.observe([tip(879600,500000,.74)],3200)).toEqual([]);
+    expect(gate.observe([tip(879400,500000,.72)],5400)).toHaveLength(1);
   });
   it('does not turn duplicate or fast consecutive callbacks into two observations',()=>{
     const gate=new IdleTipRecovery();
