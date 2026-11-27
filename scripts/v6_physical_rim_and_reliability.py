@@ -141,8 +141,11 @@ import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence
     patch(runtime,
       '      captureInputFrame();',
       """      captureInputFrame();
-      if(!evidenceCanvas)evidenceCanvas=document.createElement('canvas');
-      const temporalPhoto=readTemporalCamera(video,evidenceCanvas);""")
+      let temporalPhoto:TemporalFrame|null=null;
+      try {
+        if(!evidenceCanvas)evidenceCanvas=document.createElement('canvas');
+        temporalPhoto=readTemporalCamera(video,evidenceCanvas);
+      } catch { /* Optional photo evidence must never prevent model inference. */ }""")
     patch(runtime,
       '      onFrame({\n        keypoints,',
       '      onFrame({\n        temporalPhoto,\n        keypoints,')
