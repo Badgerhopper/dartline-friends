@@ -45,6 +45,7 @@ import { VideoFrameFreshness } from '../../lib/videoFrameFreshness';""")
       """  const photoTakeoutConfirm = useRef(new PhotoTakeoutConfirm());
   const photoTakeoutPriority = useRef(false);
   const freshVideoFrames = useRef(new VideoFrameFreshness());
+  const observedCameraSource = useRef<MediaProvider|null>(null);
   const lastLocatedPhotoFrame = useRef<unknown>(null);
   const locatedVisitKey = useRef('');
   const locatedVideoSource = useRef<MediaProvider|null>(null);
@@ -62,6 +63,21 @@ import { VideoFrameFreshness } from '../../lib/videoFrameFreshness';""")
       latestCameraSnapshot.current=image;""",
       """      const now=Date.now(),ctx=visitContext.current;
       const video=vision.refs.video.current;
+      const stream=video?.srcObject??null;
+      // iOS can replace the MediaStream without changing the <video> node.
+      // All photo proof and homography from the old camera must be discarded.
+      // A mid-turn camera change safely falls back to the AI verifier.
+      if(stream!==observedCameraSource.current){
+        observedCameraSource.current=stream;
+        freshVideoFrames.current.stop();
+        visualBoardReturn.current.reset();
+        photoTakeoutConfirm.current.reset();
+        lastLocatedPhotoFrame.current=null;
+        lastLocatedAt.current=0;
+        locatedVideoSource.current=null;
+        locatedVisitKey.current='';
+        photoTakeoutPriority.current=false;
+      }
       // A timer tick does NOT prove a fresh camera frame. Safari can keep
       // serving the same last picture while its model/camera has stalled.
       const decodedFrameId=freshVideoFrames.current.sample(video,now);
