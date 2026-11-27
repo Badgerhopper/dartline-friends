@@ -27,6 +27,7 @@ def install(root:Path):
       'tests/unit/dartline-photo-takeout-confirm.test.ts',
       'src/server/scoring/verifiedBoardClear.ts',
       'tests/unit/dartline-verified-board-clear.test.ts',
+      'tests/unit/dartline-full-visit-integration.test.ts',
     ):
       dst=root/rel
       dst.parent.mkdir(parents=True,exist_ok=True)
