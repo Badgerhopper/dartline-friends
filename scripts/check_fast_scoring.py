@@ -190,9 +190,31 @@ def verify(root: Path) -> None:
             and 'runtime.inferCandidates()' in scorer
             and "takeoutExclusive.current && ctx.dartsRecorded===3" in scorer
         ),
+        'Transient AI inference errors clear on subsequent successful frames': (
+            'setError(previous => previous === null ? previous : null)' in
+              (root/'src/client/hooks/useVisionRuntime.ts').read_text(encoding='utf-8')
+        ),
+        'Extra camera pixels reused instead of re-reading video on every score': (
+            'latestCameraSnapshot.current=image' in scorer
+            and 'latestCameraAt.current=now' in scorer
+            and 'const recent=when-latestCameraAt.current<=900' in scorer
+            and 'scoringComparisonCanvas' not in scorer
+        ),
+        'Photographic takeout needs fresh located visit plus physically cleared image': (
+            'visualBoardReturn.current.matchesCurrentEmpty(image,ctx.dartsRecorded)' in scorer
+            and 'locatedVisitKey.current===ctx.key' in scorer
+            and 'photoTakeoutConfirm.current.claim(ctx.key,now,true,true)' in scorer
+            and 'photoTakeoutConfirm.current.reset()' in scorer
+        ),
+        'Strong photo clear runs without competing heavy AI inference': (
+            'photoTakeoutPriority.current) return;' in scorer
+            and 'fastBoardClear.current.claim(' in scorer
+            and 'PHOTO_CLEAR_CONFIRM_SPACING_MS=900' in
+              (root/'src/client/lib/photoTakeoutConfirm.ts').read_text(encoding='utf-8')
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v5.2-visual-dedupe-fast-recovery-2026-11-26'
-            and 'DARTLINE v5.2' in hud
+            marker == 'dartline-v5.3-camera-recovery-photo-submit-2026-11-26'
+            and 'DARTLINE v5.3' in hud
         ),
     }
     failed = [name for name, success in checks.items() if not success]
