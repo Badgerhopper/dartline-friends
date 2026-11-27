@@ -39,6 +39,7 @@ export class VideoFrameFreshness {
 
   sample(video:PresentableVideo|null,now:number):number|null{
     if(!video || video.readyState<2 || !video.srcObject ||
+       typeof video.requestVideoFrameCallback!=='function' ||
        !Number.isFinite(now) || now<=0){
       this.stop();return null;
     }
