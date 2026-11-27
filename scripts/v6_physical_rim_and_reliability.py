@@ -44,7 +44,7 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
     const onBoard=physicalBoardTipBatch(tips);
     if(onBoard===null)return;
     tips=onBoard;
-    if(tips.length&&!takeoutExclusive.current&&!tips.some(t=>t.estimate)){
+    if(!takeoutExclusive.current&&!tips.some(t=>t.estimate)){
       const confirmed=outerMissConfirmation.current.filter(tips,scoringVisitKey.current,
         vision.frameRef.current,Date.now());
       if(confirmed===null){trace('Model MISS waiting for independent confirmation');return;}
@@ -104,6 +104,14 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
       // physical dart-shaped image difference ONLY. No wall or static spare
       // darts; the independent low confidence guess remains manual.
       if(strongNewPhysicalMiss(x,y,guess)){""")
+
+    # Candidate scans must feed the same outer-miss gate even when the
+    # idle tracker has not yet published a batch. Otherwise a weak real
+    # MISS can exhaust its one emission before the second gate sees it.
+    patch(scorer,
+      '        const recovered=idleTipRecovery.current.observe(relaxed.tips,Date.now());',
+      """        outerMissConfirmation.current.filter(relaxed.tips,initialVisit,frame,Date.now());
+        const recovered=idleTipRecovery.current.observe(relaxed.tips,Date.now());""")
 
     # Takeout checks must exclude the very wall-mounted spares that scoring
     # filters out. Previously a spare outside the board could permanently
