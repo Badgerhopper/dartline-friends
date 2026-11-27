@@ -248,9 +248,8 @@ def verify(root: Path) -> None:
               (root/'src/server/scoring/verifiedBoardClear.ts').read_text(encoding='utf-8')
         ),
         'Automatic MISS scoring confined to physical circular board and double-to-rim': (
-            'boardImpactRegion(proj[0],proj[1])' in
-              (root/'src/client/vision/predictionPipeline.ts').read_text(encoding='utf-8')
-            and 'physicalBoardTipBatch(tips)' in scorer
+            'physicalBoardTipBatch(tips)' in scorer
+            and "import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch }" in scorer
             and 'if(onBoard===null)return;' in scorer
             and 'strongNewPhysicalMiss(x,y,guess)' in scorer
             and "boardImpactRegion(point[0],point[1])!=='outside'" in scorer
