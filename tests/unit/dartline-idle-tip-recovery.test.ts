@@ -46,6 +46,27 @@ describe('DartLine fallback for throws with NO motion trigger',()=>{
     expect(second).toHaveLength(2);
     expect(second.some(t=>t.x>565000)).toBe(true);
   });
+  it('does not invent a third dart when confidence ordering steals a neighboring match',()=>{
+    const gate=new IdleTipRecovery();
+    const first=[tip(550000),tip(570000)];
+    gate.observe(first,1000);
+    expect(gate.observe(first,3200)).toHaveLength(2);
+    // The strongest point can match either old dart. The weaker point can
+    // only match the first. A greedy assignment creates a false new track.
+    const ambiguous=[tip(559000,500000,.96),tip(541000,500000,.88)];
+    expect(gate.observe(ambiguous,5400)).toEqual([]);
+    expect(gate.observe(ambiguous,7600)).toEqual([]);
+    expect(gate.observe(ambiguous,9800)).toEqual([]);
+  });
+  it('still confirms an actual third clustered dart after assignment',()=>{
+    const gate=new IdleTipRecovery();
+    const first=[tip(550000),tip(570000)];
+    gate.observe(first,1000);
+    expect(gate.observe(first,3200)).toHaveLength(2);
+    const three=[tip(550000),tip(570000),tip(560000)];
+    expect(gate.observe(three,5400)).toEqual([]);
+    expect(gate.observe(three,7600)).toHaveLength(3);
+  });
   it('tolerates one missed inference but requires extra evidence after a gap',()=>{
     const gate=new IdleTipRecovery();
     expect(gate.observe([tip(560000)],1000)).toEqual([]);
