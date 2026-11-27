@@ -1,5 +1,6 @@
 import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';
 import type {TemporalGuess} from './temporalDartEvidence';
+import {scoreFromBoardCoords} from '../../shared/scoring';
 import type {BoardTip} from '../../shared/vision/types';
 
 /** Geometry must follow the PHYSICAL face of the dartboard.
@@ -65,4 +66,32 @@ export function physicalBoardMask(
     if(p&&boardImpactRegion(p[0],p[1])!=='outside')mask[y*size+x]=1;
   }
   return mask;
+}
+
+/** An invisible point has an interval, not a magical exact coordinate.
+ * Auto-score only if a dense sampling of that interval and lateral fitting
+ * uncertainty stays in the same scoring bed AND within the repeat guard.
+ * Ambiguous double/triple wires and long occlusions remain manual estimates.
+ */
+export function scoreHiddenTip(
+  guess:TemporalGuess,project:(x:number,y:number)=>readonly number[]|null
+):{x:number;y:number;label:string}|null {
+  const range=guess.hiddenRange,axis=guess.axis;
+  if(!range||!axis||guess.confidence<.75||guess.length<30)return null;
+  const mid=project(guess.x,guess.y);
+  if(!mid||boardImpactRegion(mid[0],mid[1])==='outside')return null;
+  const x=Math.round(mid[0]),y=Math.round(mid[1]);
+  const label=scoreFromBoardCoords(x,y).label;
+  const steps=Math.max(4,Math.ceil(512*Math.hypot(range.endX-range.startX,range.endY-range.startY)));
+  if(steps>64)return null;
+  for(let i=0;i<=steps;i++)for(const lateral of [-1.5,-.75,0,.75,1.5]){
+    const t=i/steps;
+    const px=range.startX+(range.endX-range.startX)*t-axis.y*lateral/256;
+    const py=range.startY+(range.endY-range.startY)*t+axis.x*lateral/256;
+    const p=project(px,py);
+    if(!p||boardImpactRegion(p[0],p[1])==='outside'||
+      Math.hypot(p[0]-x,p[1]-y)>12000||
+      scoreFromBoardCoords(Math.round(p[0]),Math.round(p[1])).label!==label)return null;
+  }
+  return {x,y,label};
 }
