@@ -49,3 +49,20 @@ export function physicalBoardTipBatch(tips:readonly BoardTip[]):BoardTip[]|null 
   const accepted=tips.filter(t=>boardImpactRegion(t.x,t.y)!=='outside');
   return accepted.length ? accepted : null;
 }
+
+/** Project the actual physical board into the existing square camera image.
+ * Used only for visual clearance: people moving beside the board cannot
+ * invalidate a genuinely empty board. Pixel centers, lens correction and
+ * the scoring homography all use the same coordinate convention.
+ */
+export function physicalBoardMask(
+  project:(x:number,y:number)=>readonly number[]|null,
+  size=256
+):Uint8Array {
+  const mask=new Uint8Array(size*size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const p=project((x+.5)/size,(y+.5)/size);
+    if(p&&boardImpactRegion(p[0],p[1])!=='outside')mask[y*size+x]=1;
+  }
+  return mask;
+}
