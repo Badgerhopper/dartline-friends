@@ -119,7 +119,7 @@ import { VideoFrameFreshness } from '../../lib/videoFrameFreshness';""")
         if(!clear){
           // No partial photo confirmation survives an intervening obstructed
           // or occupied camera image or a missing decoded video frame.
-          photoTakeoutConfirm.current.invalidate(ctx.key);
+          photoTakeoutConfirm.current.invalidate(ctx.key,now);
         } else if(photoTakeoutConfirm.current.claim(
             ctx.key,now,true,true,decodedFrameId)){
           // Two different decoded video frames, at least 900ms apart.
