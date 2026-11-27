@@ -99,7 +99,7 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch } from 
       if(strongNewPhysicalMiss(x,y,guess)){""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
-      'dartline-v6-physical-board-miss-recovery-DRAFT-DO-NOT-DEPLOY\n',
+      'dartline-v6.1-camera-noise-cluster-recovery-RC\n',
       encoding='utf-8')
     print('DartLine v6 DRAFT physical board-only MISS recognition enabled')
 
