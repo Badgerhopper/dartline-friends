@@ -76,8 +76,8 @@ def verify(root: Path) -> None:
             and 'takeoutMonitorArmed, hint:ctx' in scorer
         ),
         'Full-speed scanner preserves two or three independent confirmations': (
-            'IDLE_RECOVERY_INTERVAL_MS = 950' in
-                (root/'src/client/lib/idleTipRecovery.ts').read_text(encoding='utf-8')
+            'RAPID_RECOVERY_NORMAL_GAP_MS=950' in
+                (root/'src/client/lib/rapidVisualScoring.ts').read_text(encoding='utf-8')
             and 'candidate.count < required' in
                 (root/'src/client/lib/idleTipRecovery.ts').read_text(encoding='utf-8')
         ),
@@ -123,7 +123,7 @@ def verify(root: Path) -> None:
               (root/'src/client/hooks/useMatch.ts').read_text(encoding='utf-8')
         ),
         'Temporal vision actually compares before/after video, not just model confidence': (
-            'temporalDartTracker.current.observe(image,now)' in scorer
+            'temporalDartTracker.current.observe(image,now,' in scorer
             and 'readTemporalCamera(vision.refs.video.current' in scorer
             and 'detectTemporalDart(' in
              (root/'src/client/lib/temporalDartEvidence.ts').read_text(encoding='utf-8')
@@ -135,8 +135,8 @@ def verify(root: Path) -> None:
             and 'Use estimate' in hud
         ),
         'Clear exterior-ring MISS detection has geometry and visual guards': (
-            "result.label==='miss' && radial>425000" in scorer
-            and 'guess.confidence>=0.80 && !guess.obscured' in scorer
+            'strongNewPhysicalMiss(x,y,guess)' in scorer
+            and "boardImpactRegion(point[0],point[1])!=='outside'" in scorer
         ),
         'Fast verified removal prewarms from second dart without early submit': (
             'const prepareTakeout = autoTakeout' in hud
@@ -247,8 +247,20 @@ def verify(root: Path) -> None:
             and 'now-this.firstEmptyAt>CLEAR_BOARD_MAX_GAP_MS' in
               (root/'src/server/scoring/verifiedBoardClear.ts').read_text(encoding='utf-8')
         ),
+        'Automatic MISS scoring confined to physical circular board and double-to-rim': (
+            'boardImpactRegion(proj[0],proj[1])' in
+              (root/'src/client/vision/predictionPipeline.ts').read_text(encoding='utf-8')
+            and 'physicalBoardTipBatch(tips)' in scorer
+            and 'if(onBoard===null)return;' in scorer
+            and 'strongNewPhysicalMiss(x,y,guess)' in scorer
+            and "boardImpactRegion(point[0],point[1])!=='outside'" in scorer
+            and 'PHYSICAL_DOUBLE_EDGE=RADII.doubleOuter' in
+              (root/'src/client/lib/physicalBoardImpact.ts').read_text(encoding='utf-8')
+            and 'PHYSICAL_BOARD_EDGE=RADII.boardOuter' in
+              (root/'src/client/lib/physicalBoardImpact.ts').read_text(encoding='utf-8')
+        ),
         'Release marker and visible version match': (
-            marker == 'dartline-v6-release-candidate-NOT-APPROVED'
+            marker == 'dartline-v6-physical-board-miss-recovery-DRAFT-DO-NOT-DEPLOY'
             and 'DARTLINE v6 RC · NOT RELEASED' in hud
         ),
     }
