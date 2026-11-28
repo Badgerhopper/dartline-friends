@@ -111,7 +111,10 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
     patch(scorer,
       '        const recovered=idleTipRecovery.current.observe(relaxed.tips,Date.now());',
       """        outerMissConfirmation.current.filter(relaxed.tips,initialVisit,frame,Date.now());
-        const recovered=idleTipRecovery.current.observe(relaxed.tips,Date.now());""")
+        const recoveryNow=Date.now();
+        let recovered=idleTipRecovery.current.observe(relaxed.tips,recoveryNow);
+        if(!recovered.length && relaxed.tips.length)
+          recovered=idleTipRecovery.current.retryConfirmed(recoveryNow);""")
 
     # Takeout checks must exclude the very wall-mounted spares that scoring
     # filters out. Previously a spare outside the board could permanently
@@ -410,7 +413,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       '      inferenceMs: Math.round(vision.frame?.ms ?? 0),',
       """      inferenceMs: Math.round(vision.frame?.ms ?? 0),
       cameraTrace: [
-        'Scorer v6.4 | '+status+' | '+view,
+        'Scorer v6.4.1 | '+status+' | '+view,
         'Camera '+(vision.cameraActive?'on':'off')+' | scoring '+scoring,
         'Context '+(visitContext.current.key?'present':'MISSING')+
           ' | active '+visitContext.current.active+
@@ -460,12 +463,12 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       """      <details className="dartline-hud-slot-hint" style={{display:'block',textAlign:'left',padding:8}}>
         <summary>Camera Diagnostics · {cameraReport?.inferenceMs??0} ms AI</summary>
         <pre style={{whiteSpace:'pre-wrap',textAlign:'left',fontSize:12}}>{[
-          'HUD v6.4 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
+          'HUD v6.4.1 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
           cameraReport?'Health received | scoring '+cameraReport.scoring:'No camera health received',
           ...(cameraReport?.cameraTrace?.length?cameraReport.cameraTrace:['No scorer trace received'])
         ].join('\\n')}</pre>
         <button type="button" onClick={()=>void navigator.clipboard?.writeText([
-          'HUD v6.4 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
+          'HUD v6.4.1 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
           cameraReport?'Health received | scoring '+cameraReport.scoring:'No camera health received',
           ...(cameraReport?.cameraTrace??['No scorer trace received'])
         ].join('\\n')).catch(()=>{})}>Copy diagnostics</button>
@@ -538,7 +541,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       const ctx=visitContext.current;
       const photo=tips.some(t=>t.estimate)?deferredEstimate.current?.photo??latestCameraSnapshot.current:
         vision.frameRef.current?.temporalPhoto??latestCameraSnapshot.current;
-      if(photo && !sceneGate.current.allow(ctx.key,ctx.dartsRecorded,tips,photo,Date.now())){
+      if(!photo || !sceneGate.current.allow(ctx.key,ctx.dartsRecorded,tips,photo,Date.now())){
         trace('Score suppressed: same scene or awaiting score acknowledgment');return;
       }
     }
@@ -617,6 +620,16 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       """          sceneGate.current.prime(ctx.key,image);
           trace('Empty reference acquired from located scan and live video');""")
 
+    # A stale image cannot authorize an occupied-to-empty override. Require
+    # the exact inference photo to still match the previously verified board.
+    patch(scorer,
+      """        const action=fastBoardClear.current.finish(token, Date.now(),
+          onBoardTips.length ? 'occupied' : 'empty');""",
+      """        if(onBoardTips.length && (!frame.temporalPhoto ||
+            !visualBoardReturn.current.matchesCurrentEmpty(frame.temporalPhoto,3)))
+          fastBoardClear.current.invalidatePhotoClear();
+        const action=fastBoardClear.current.finish(token, Date.now(),
+          onBoardTips.length ? 'occupied' : 'empty');""")
     # The wire count guard makes delayed ordinary model reports subject
     # to the same authoritative visit boundary as estimated hits.
     patch(types,
@@ -664,7 +677,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
   session.addTips(client.deviceId, tips);""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
-      'dartline-v6.4-scene-arbitration-RC\n',
+      'dartline-v6.4.1-acknowledged-recovery-RC\n',
       encoding='utf-8')
     print('DartLine v6 DRAFT physical board-only MISS recognition enabled')
 
