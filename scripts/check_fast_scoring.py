@@ -259,8 +259,8 @@ def verify(root: Path) -> None:
               (root/'src/client/lib/physicalBoardImpact.ts').read_text(encoding='utf-8')
         ),
         'Release marker and visible version match': (
-            marker == 'dartline-v6.3.3-removal-handoff-RC'
-            and 'DARTLINE v6.3.3 RC · NOT RELEASED' in hud
+            marker == 'dartline-v6.4-scene-arbitration-RC'
+            and 'DARTLINE v6.4 RC · NOT RELEASED' in hud
             and '<summary>Camera Diagnostics' in hud
             and 'No scorer trace received' in hud
             and 'Context ' in scorer
@@ -270,6 +270,9 @@ def verify(root: Path) -> None:
             and 'visualBoardReturn.current.rememberVotedEmpty(' in scorer
             and 'visualBoardReturn.current.observeRemovalScan(' in scorer
             and 'retrievalVisit!==visitContext.current.key' in scorer
+            and 'sceneGate.current.allow(' in scorer
+            and 'sceneGate.current.acknowledge(' in scorer
+            and 'fastBoardClear.current.arm(true,retrievalNow,true)' in scorer
         ),
     }
     failed = [name for name, success in checks.items() if not success]
