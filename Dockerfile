@@ -13,6 +13,13 @@ ARG RUN_TESTS=0
 RUN npm ci
 RUN npm run build
 RUN if [ "$RUN_TESTS" = "1" ]; then npm test; fi
+# Test the real browser and the model on upstream labeled board photos in CI.
+ARG RUN_BROWSER_TESTS=0
+RUN if [ "$RUN_BROWSER_TESTS" = "1" ]; then \
+  cp /source/dartline/tests/e2e/dartline-mobile-real-model.spec.ts tests/e2e/ && \
+  npx playwright install --with-deps chromium && \
+  CI=1 npx playwright test --project=app --workers=1 dartline-mobile-real-model.spec.ts; \
+  fi
 RUN npm prune --omit=dev
 
 FROM node:22.22.0-bookworm-slim
