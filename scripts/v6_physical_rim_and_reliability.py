@@ -249,7 +249,7 @@ import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence
 
     patch(scorer,
       '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.reset();\n        photoTakeoutConfirm.current.reset();',
-      '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.startNextVisit();\n        temporalDartTracker.current.setRegion(visualBoardReturn.current.regionMask);\n        const nextReference=visualBoardReturn.current.emptyReference;\n        if(nextReference && msg.active && msg.dartsRecorded===0)temporalDartTracker.current.prime(nextReference);\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
+      '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.startNextVisit();\n        temporalDartTracker.current.setRegion(visualBoardReturn.current.regionMask);\n        const nextReference=visualBoardReturn.current.emptyReference;\n        if(nextReference && msg.active && msg.dartsRecorded===0){\n          temporalDartTracker.current.prime(nextReference);\n          sceneGate.current.prime(msg.key,nextReference);\n        }\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
     patch(scorer,
       '  const lastLocatedPhotoFrame = useRef<unknown>(null);',
       '  const lastLocatedPhotoFrame = useRef<unknown>(null);\n  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);')
@@ -278,6 +278,7 @@ import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence
                   transformPoint(undistortNormalizedPoint([x,y],lens),matrix));
                 visualBoardReturn.current.setRegion(region);
                 temporalDartTracker.current.setRegion(region);
+                sceneGate.current.setRegion(region);
               }
             }
             if(ctx.dartsRecorded>0 && completed.result.tips.some(t=>boardImpactRegion(t.x,t.y)!=='outside') &&
@@ -489,6 +490,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
            locatedVideoSource.current===vision.refs.video.current?.srcObject &&
            visualBoardReturn.current.confirmUserEmpty(image,0)){
           temporalDartTracker.current.prime(image);
+          sceneGate.current.prime(ctx.key,image);
           trace('Empty board reference confirmed by player');
         } else trace('Empty reference not captured: need active zero-dart visit and located live camera');
         return;
