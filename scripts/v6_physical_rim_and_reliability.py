@@ -410,7 +410,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       '      inferenceMs: Math.round(vision.frame?.ms ?? 0),',
       """      inferenceMs: Math.round(vision.frame?.ms ?? 0),
       cameraTrace: [
-        'Scorer v6.3.3 | '+status+' | '+view,
+        'Scorer v6.4 | '+status+' | '+view,
         'Camera '+(vision.cameraActive?'on':'off')+' | scoring '+scoring,
         'Context '+(visitContext.current.key?'present':'MISSING')+
           ' | active '+visitContext.current.active+
@@ -460,12 +460,12 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       """      <details className="dartline-hud-slot-hint" style={{display:'block',textAlign:'left',padding:8}}>
         <summary>Camera Diagnostics · {cameraReport?.inferenceMs??0} ms AI</summary>
         <pre style={{whiteSpace:'pre-wrap',textAlign:'left',fontSize:12}}>{[
-          'HUD v6.3.3 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
+          'HUD v6.4 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
           cameraReport?'Health received | scoring '+cameraReport.scoring:'No camera health received',
           ...(cameraReport?.cameraTrace?.length?cameraReport.cameraTrace:['No scorer trace received'])
         ].join('\\n')}</pre>
         <button type="button" onClick={()=>void navigator.clipboard?.writeText([
-          'HUD v6.3.3 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
+          'HUD v6.4 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
           cameraReport?'Health received | scoring '+cameraReport.scoring:'No camera health received',
           ...(cameraReport?.cameraTrace??['No scorer trace received'])
         ].join('\\n')).catch(()=>{})}>Copy diagnostics</button>
@@ -524,8 +524,101 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
           </button>
         </div>}
       <details className="dartline-hud-slot-hint" style={{display:""")
+    # One scene checkpoint for both recognition paths. The count
+    # acknowledgment is the server's, not an inference or timeout.
+    patch(scorer,
+      '  VisualScoringDeduper, RapidVisualRecovery, RAPID_RECOVERY_POLL_MS,',
+      '  VisualScoringDeduper, RapidVisualRecovery, ScoringSceneGate, RAPID_RECOVERY_POLL_MS,')
+    patch(scorer,
+      '  const visualScoringDeduper = useRef(new VisualScoringDeduper());',
+      '  const visualScoringDeduper = useRef(new VisualScoringDeduper());\n  const sceneGate=useRef(new ScoringSceneGate());')
+    patch(scorer,
+      '    meter.current.onTipsReceived(tips.length > 0);',
+      """    if(tips.length && !takeoutExclusive.current && visitContext.current.active){
+      const ctx=visitContext.current;
+      const photo=tips.some(t=>t.estimate)?latestCameraSnapshot.current:
+        vision.frameRef.current?.temporalPhoto??latestCameraSnapshot.current;
+      if(photo && !sceneGate.current.allow(ctx.key,ctx.dartsRecorded,tips,photo,Date.now())){
+        trace('Score suppressed: same scene or awaiting score acknowledgment');return;
+      }
+    }
+    meter.current.onTipsReceived(tips.length > 0);""")
+    patch(scorer,
+      '      scoringVisitKey.current=msg.active?msg.key:\'\';',
+      """      scoringVisitKey.current=msg.active?msg.key:'';
+      sceneGate.current.acknowledge(msg.key,msg.dartsRecorded);""")
+    patch(scorer,
+      '        lastGoodPose.current=null;',
+      '        lastGoodPose.current=null;\n        sceneGate.current.reset();')
+    # Temporal estimates must not race the actual AI. Instead preserve
+    # their provisional arrival and allow the AI an independent opportunity
+    # to score it. If count advances, discard this estimate.
+    patch(scorer,
+      '  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);',
+      """  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);
+  const deferredEstimate=useRef<{key:string;count:number;at:number;tip:BoardTip}|null>(null);""")
+    patch(scorer,
+      '        lastGoodPose.current=null;',
+      '        lastGoodPose.current=null;\n        deferredEstimate.current=null;')
+    patch(scorer,
+      '        latestOnTips.current([{x:physical.x,y:physical.y,confidence:guess.confidence,\n          estimate:{visitKey:ctx.key,expectedCount:ctx.dartsRecorded}}],0);',
+      """        deferredEstimate.current={key:ctx.key,count:ctx.dartsRecorded,at:now,
+          tip:{x:physical.x,y:physical.y,confidence:guess.confidence,
+            estimate:{visitKey:ctx.key,expectedCount:ctx.dartsRecorded}}};""")
+    patch(scorer,
+      '      const runtime=vision.runtimeRef.current;\n      const frame=vision.frameRef.current?.result?vision.frameRef.current:lastGoodPose.current;',
+      """      const pendingEstimate=deferredEstimate.current;
+      if(pendingEstimate){
+        if(pendingEstimate.key!==ctx.key || pendingEstimate.count!==ctx.dartsRecorded ||
+           now-pendingEstimate.at>3000)deferredEstimate.current=null;
+        else if(now-pendingEstimate.at>=700){
+          latestOnTips.current([pendingEstimate.tip],0);
+          // Retry only if the authoritative count has not moved. The shared
+          // scene gate and server count check prevent a second acceptance.
+        }
+      }
+      const runtime=vision.runtimeRef.current;
+      const frame=vision.frameRef.current?.result?vision.frameRef.current:lastGoodPose.current;""")
+    # The visit-context and takeout-monitor events can arrive in either
+    # order. A reset can disarm the gate while React's boolean is already
+    # true, so do not depend on a changed React state to arm it.
+    patch(scorer,
+      '      const token=fastBoardClear.current.claim(',
+      """      const retrievalNow=Date.now(),ctx=visitContext.current;
+      if(!ctx.active||ctx.dartsRecorded!==3)return;
+      fastBoardClear.current.arm(true,retrievalNow,true);
+      pendingRemovalWitness.current.replay(fastBoardClear.current,retrievalNow);
+      const token=fastBoardClear.current.claim(""")
+    patch(scorer,
+      '        fastBoardClear.current.reset();\n        takeoutScene.current.reset();',
+      """        fastBoardClear.current.reset();
+        takeoutScene.current.reset();
+        if(msg.active&&msg.dartsRecorded===3&&takeoutExclusive.current)
+          fastBoardClear.current.arm(true,Date.now(),true);""")
+    # Capture motion after count two even before the third score reaches
+    # the scoreboard; only the gate can authorize submission after three.
+    patch(scorer,
+      '        takeoutExclusive.current)){',
+      '        takeoutExclusive.current || visitContext.current.dartsRecorded>=2)){')
+    # Do not overwrite a freshly scored occupied image with an arbitrary
+    # less-complete photo. Keep the most complete view for disappearance.
+    # Initial calibration must be independent of the optional relaxed
+    # detector: it often hallucinates a static wire/flight on a clear board.
+    # Use the stricter successful inference plus stable photo proof.
+    patch(scorer,
+      "              const empty=Boolean(relaxed&&!relaxed.tips.some(t=>boardImpactRegion(t.x,t.y)!=='outside'));",
+      """              const empty=Boolean(relaxed && !completed.result.tips.some(
+                t=>boardImpactRegion(t.x,t.y)!=='outside'));""")
+    patch(scorer,
+      '                if(reference)temporalDartTracker.current.prime(reference);',
+      '                if(reference){temporalDartTracker.current.prime(reference);sceneGate.current.prime(ctx.key,reference);}')
+    patch(scorer,
+      "          trace('Empty reference acquired from located scan and live video');",
+      """          sceneGate.current.prime(ctx.key,image);
+          trace('Empty reference acquired from located scan and live video');""")
+
     (root/'src/client/public/dartline-build.txt').write_text(
-      'dartline-v6.3.3-removal-handoff-RC\n',
+      'dartline-v6.4-scene-arbitration-RC\n',
       encoding='utf-8')
     print('DartLine v6 DRAFT physical board-only MISS recognition enabled')
 
