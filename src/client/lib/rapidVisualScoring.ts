@@ -142,12 +142,14 @@ export class ScoringSceneGate {
   private accepted:TemporalFrame|null=null;
   private pending:{frame:TemporalFrame;count:number;at:number;tips:BoardTip[]}|null=null;
   reset():void {this.key='';this.count=0;this.accepted=null;this.pending=null;}
-  acknowledge(key:string,count:number):void {
-    if(key!==this.key||count<this.count){this.reset();this.key=key;this.count=count;return;}
+  acknowledge(key:string,count:number):TemporalFrame|null {
+    if(key!==this.key||count<this.count){this.reset();this.key=key;this.count=count;return null;}
     if(count>this.count){
       if(this.pending&&this.pending.count===this.count)this.accepted=this.pending.frame;
-      this.pending=null;this.count=count;
+      const accepted=this.pending?.count===this.count?this.pending.frame:null;
+      this.pending=null;this.count=count;return accepted;
     }
+    return null;
   }
   prime(key:string,frame:TemporalFrame):void {
     if(key!==this.key){this.reset();this.key=key;}
