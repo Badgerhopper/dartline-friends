@@ -178,7 +178,7 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
 import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence';""")
     patch(runtime,
       'export type FrameInfo = {',
-      'export type FrameInfo = {\n  temporalPhoto?:TemporalFrame|null;')
+      'export type FrameInfo = {\n  temporalPhoto?:TemporalFrame|null;\n  photoCapturedAt?:number;')
     patch(runtime,
       '  function captureInputFrame() {',
       '  let evidenceCanvas:HTMLCanvasElement|null=null;\n  function captureInputFrame() {')
@@ -186,13 +186,14 @@ import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence
       '      captureInputFrame();',
       """      captureInputFrame();
       let temporalPhoto:TemporalFrame|null=null;
+      const photoCapturedAt=Date.now();
       try {
         if(!evidenceCanvas)evidenceCanvas=document.createElement('canvas');
         temporalPhoto=readTemporalCamera(video,evidenceCanvas);
       } catch { /* Optional photo evidence must never prevent model inference. */ }""")
     patch(runtime,
       '      onFrame({\n        keypoints,',
-      '      onFrame({\n        temporalPhoto,\n        keypoints,')
+      '      onFrame({\n        temporalPhoto,\n        photoCapturedAt,\n        keypoints,')
 
     # Motion recognition still ran expensive neural scans during retrieval
     # even though the publication guard discarded them. Keep the verifier
@@ -541,8 +542,13 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       '    meter.current.onTipsReceived(tips.length > 0);',
       """    if(tips.length && !takeoutExclusive.current && visitContext.current.active){
       const ctx=visitContext.current;
-      const photo=tips.some(t=>t.estimate)?deferredEstimate.current?.photo??latestCameraSnapshot.current:
-        vision.frameRef.current?.temporalPhoto??latestCameraSnapshot.current;
+      const estimated=tips.some(t=>t.estimate);
+      const capturedAt=estimated?deferredEstimate.current?.at:vision.frameRef.current?.photoCapturedAt;
+      if(!capturedAt||capturedAt<visitBoundaryAt.current){
+        trace('Score suppressed: inference belongs to an earlier visit');return;
+      }
+      const photo=estimated?deferredEstimate.current?.photo??null:
+        vision.frameRef.current?.temporalPhoto??null;
       if(!photo || !sceneGate.current.allow(ctx.key,ctx.dartsRecorded,tips,photo,Date.now())){
         trace('Score suppressed: same scene or awaiting score acknowledgment');return;
       }
@@ -551,18 +557,20 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
     patch(scorer,
       '      scoringVisitKey.current=msg.active?msg.key:\'\';',
       """      scoringVisitKey.current=msg.active?msg.key:'';
+      if(old.key!==msg.key||old.active!==msg.active)visitBoundaryAt.current=Date.now();
       const acknowledgedPhoto=sceneGate.current.acknowledge(msg.key,msg.dartsRecorded);
       if(acknowledgedPhoto)temporalDartTracker.current.prime(acknowledgedPhoto,msg.dartsRecorded);""")
     patch(scorer,
       '        lastGoodPose.current=null;',
-      '        lastGoodPose.current=null;\n        sceneGate.current.reset();')
+      '        lastGoodPose.current=null;\n        sceneGate.current.reset();\n        sceneGate.current.setRegion(null);')
     # Temporal estimates must not race the actual AI. Instead preserve
     # their provisional arrival and allow the AI an independent opportunity
     # to score it. If count advances, discard this estimate.
     patch(scorer,
       '  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);',
       """  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);
-  const deferredEstimate=useRef<{key:string;count:number;at:number;tip:BoardTip;photo:TemporalFrame}|null>(null);""")
+  const deferredEstimate=useRef<{key:string;count:number;at:number;tip:BoardTip;photo:TemporalFrame}|null>(null);
+  const visitBoundaryAt=useRef(0);""")
     patch(scorer,
       '        lastGoodPose.current=null;',
       '        lastGoodPose.current=null;\n        deferredEstimate.current=null;')
