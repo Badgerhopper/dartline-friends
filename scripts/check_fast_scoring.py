@@ -53,7 +53,7 @@ def verify(root: Path) -> None:
         ),
         'Motion-free recovery confirms actual candidate frames': (
             'runtime.inferCandidates()' in scorer
-            and 'idleTipRecovery.current.observe(relaxed.tips,Date.now())' in scorer
+            and 'idleTipRecovery.current.observe(relaxed.tips,recoveryNow)' in scorer
             and 'movementEpoch.current !== initialEpoch' in scorer
         ),
         'No AI recovery after three registered darts or during retrieval': (
@@ -274,6 +274,8 @@ def verify(root: Path) -> None:
             and 'sceneGate.current.acknowledge(' in scorer
             and 'idleTipRecovery.current.retryConfirmed(' in scorer
             and 'fastBoardClear.current.invalidatePhotoClear()' in scorer
+            and 'capturedAt<visitBoundaryAt.current' in scorer
+            and 'photoCapturedAt' in runtime
             and 'fastBoardClear.current.arm(true,retrievalNow,true)' in scorer
         ),
     }
