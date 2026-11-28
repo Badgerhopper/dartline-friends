@@ -536,7 +536,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       '    meter.current.onTipsReceived(tips.length > 0);',
       """    if(tips.length && !takeoutExclusive.current && visitContext.current.active){
       const ctx=visitContext.current;
-      const photo=tips.some(t=>t.estimate)?latestCameraSnapshot.current:
+      const photo=tips.some(t=>t.estimate)?deferredEstimate.current?.photo??latestCameraSnapshot.current:
         vision.frameRef.current?.temporalPhoto??latestCameraSnapshot.current;
       if(photo && !sceneGate.current.allow(ctx.key,ctx.dartsRecorded,tips,photo,Date.now())){
         trace('Score suppressed: same scene or awaiting score acknowledgment');return;
@@ -546,7 +546,8 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
     patch(scorer,
       '      scoringVisitKey.current=msg.active?msg.key:\'\';',
       """      scoringVisitKey.current=msg.active?msg.key:'';
-      sceneGate.current.acknowledge(msg.key,msg.dartsRecorded);""")
+      const acknowledgedPhoto=sceneGate.current.acknowledge(msg.key,msg.dartsRecorded);
+      if(acknowledgedPhoto)temporalDartTracker.current.prime(acknowledgedPhoto,msg.dartsRecorded);""")
     patch(scorer,
       '        lastGoodPose.current=null;',
       '        lastGoodPose.current=null;\n        sceneGate.current.reset();')
@@ -556,13 +557,13 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
     patch(scorer,
       '  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);',
       """  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);
-  const deferredEstimate=useRef<{key:string;count:number;at:number;tip:BoardTip}|null>(null);""")
+  const deferredEstimate=useRef<{key:string;count:number;at:number;tip:BoardTip;photo:TemporalFrame}|null>(null);""")
     patch(scorer,
       '        lastGoodPose.current=null;',
       '        lastGoodPose.current=null;\n        deferredEstimate.current=null;')
     patch(scorer,
       '        latestOnTips.current([{x:physical.x,y:physical.y,confidence:guess.confidence,\n          estimate:{visitKey:ctx.key,expectedCount:ctx.dartsRecorded}}],0);',
-      """        deferredEstimate.current={key:ctx.key,count:ctx.dartsRecorded,at:now,
+      """        deferredEstimate.current={key:ctx.key,count:ctx.dartsRecorded,at:now,photo:image,
           tip:{x:physical.x,y:physical.y,confidence:guess.confidence,
             estimate:{visitKey:ctx.key,expectedCount:ctx.dartsRecorded}}};""")
     patch(scorer,
@@ -597,9 +598,8 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
           fastBoardClear.current.arm(true,Date.now(),true);""")
     # Capture motion after count two even before the third score reaches
     # the scoreboard; only the gate can authorize submission after three.
-    patch(scorer,
-      '        takeoutExclusive.current)){',
-      '        takeoutExclusive.current || visitContext.current.dartsRecorded>=2)){')
+    # Keep the existing prewarm-only hand motion policy. Actual removal
+    # can be witnessed independently by the full resolution verifier.
     # Do not overwrite a freshly scored occupied image with an arbitrary
     # less-complete photo. Keep the most complete view for disappearance.
     # Initial calibration must be independent of the optional relaxed
