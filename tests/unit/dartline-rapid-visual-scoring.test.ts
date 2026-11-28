@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {boardImageChangedFraction,sameTipSet,VisualScoringDeduper,
-  RapidVisualRecovery,VISUAL_DUPLICATE_RETRY_MS} from '../../src/client/lib/rapidVisualScoring';
+  RapidVisualRecovery,ScoringSceneGate,VISUAL_DUPLICATE_RETRY_MS} from '../../src/client/lib/rapidVisualScoring';
 import {IdleTipRecovery, IDLE_RECOVERY_MIN_SEPARATION_MS} from '../../src/client/lib/idleTipRecovery';
 import type {TemporalFrame} from '../../src/client/lib/temporalDartEvidence';
 import type {BoardTip} from '../../src/shared/vision/types';
@@ -134,5 +134,36 @@ describe('rapid inference priority for a truly newly settled dart',()=>{
    expect(scan.shouldProbe(1100,false)).toBe(false);
    scan.reset();
    expect(scan.pendingFastProbes).toBe(0);
+ });
+});
+
+describe('one physical scene checkpoint shared by normal and estimated scoring',()=>{
+ it('cannot rescore a stationary dart even when the model switches to another sector',()=>{
+   const gate=new ScoringSceneGate(),empty=board(),a=board();shaft(a);
+   gate.prime('v',empty);
+   expect(gate.allow('v',0,[tip(500000)],a,1000)).toBe(true);
+   expect(gate.allow('v',0,[tip(630000)],a,1350)).toBe(false);
+   gate.acknowledge('v',1);
+   expect(gate.allow('v',1,[tip(630000)],a,4000)).toBe(false);
+   expect(gate.allow('v',1,[tip(500000),tip(630000)],a,5000)).toBe(false);
+ });
+ it('accepts a new close shaft and a distinct third dart without reusing the first scene',()=>{
+   const gate=new ScoringSceneGate(),a=board(),b=board(),c=board();
+   shaft(a);shaft(b);shaft(b,66,115);shaft(c);shaft(c,66,115);shaft(c,80,160);
+   expect(gate.allow('v',0,[tip(500000)],a,1000)).toBe(true);
+   gate.acknowledge('v',1);
+   expect(gate.allow('v',1,[tip(500000),tip(502000)],b,1500)).toBe(true);
+   gate.acknowledge('v',2);
+   expect(gate.allow('v',2,[tip(702000)],c,2200)).toBe(true);
+   gate.acknowledge('v',3);
+   expect(gate.allow('v',3,[tip(702000)],c,3300)).toBe(false);
+   expect(gate.allow('next',0,[tip(500000)],a,4000)).toBe(true);
+ });
+ it('does not allow two interpretations of one pending arrival to race',()=>{
+   const gate=new ScoringSceneGate(),a=board();shaft(a);
+   expect(gate.allow('v',0,[tip(500000)],a,1000)).toBe(true);
+   expect(gate.allow('v',0,[tip(530000)],a,1700)).toBe(false);
+   gate.acknowledge('v',1);
+   expect(gate.allow('v',1,[tip(530000)],a,4000)).toBe(false);
  });
 });
