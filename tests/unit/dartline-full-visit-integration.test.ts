@@ -80,6 +80,24 @@ describe('camera reports -> server tracker -> match -> verified takeout -> next 
     }finally{g.close();}
   });
 
+  it('rejects delayed ordinary AI reports after the current count changes',()=>{
+    const g=game();
+    try{
+      const m=g.state(),key=[m.id,m.legs.length,m.visits.length,m.currentPlayerIndex].join(':');
+      const a=point(500000,220000),b=point(610000,220000),c=point(430000,220000);
+      expect(g.session.addGuardedTips('phone-1',[a],key,0)).toBe(true);
+      expect(g.darts()).toBe(1);
+      expect(g.session.addGuardedTips('phone-1',[b],key,0)).toBe(false);
+      expect(g.darts()).toBe(1);
+      expect(g.session.addGuardedTips('phone-1',[a,b],key,1)).toBe(true);
+      expect(g.darts()).toBe(2);
+      expect(g.session.addGuardedTips('phone-1',[a,b,c],key,2)).toBe(true);
+      expect(g.darts()).toBe(3);
+      g.submitAfterTakeout();
+      expect(g.darts()).toBe(0);
+      expect(g.session.addGuardedTips('phone-1',[a],key,0)).toBe(false);
+    }finally{g.close();}
+  });
   it('does not duplicate a stationary dart after repeated complete AI reports',()=>{
     const g=game();
     try{
