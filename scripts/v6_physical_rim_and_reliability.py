@@ -617,6 +617,52 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       """          sceneGate.current.prime(ctx.key,image);
           trace('Empty reference acquired from located scan and live video');""")
 
+    # The wire count guard makes delayed ordinary model reports subject
+    # to the same authoritative visit boundary as estimated hits.
+    patch(types,
+      '  estimate?: {visitKey:string;expectedCount:number};',
+      '  estimate?: {visitKey:string;expectedCount:number};\n  visitGuard?: {visitKey:string;expectedCount:number};')
+    patch(scorer,
+      """        trace('Score suppressed: same scene or awaiting score acknowledgment');return;
+      }
+    }""",
+      """        trace('Score suppressed: same scene or awaiting score acknowledgment');return;
+      }
+      if(!tips.some(t=>t.estimate)){
+        tips=tips.map(t=>({...t,visitGuard:{visitKey:ctx.key,expectedCount:ctx.dartsRecorded}}));
+      }
+    }""")
+    patch(session,
+      '  /** A new physical shaft with a bounded hidden-tip estimate.',
+      """  /** Count/visit validation for a regular model observation. A delayed
+   * report from a previous throw cannot fill a second scoreboard slot. */
+  addGuardedTips(deviceId:string,tips:BoardTip[],key:string,count:number):boolean {
+    this.syncVisit();
+    const match=this.playableMatch();
+    if(!match||!this.cameras.has(deviceId)||!this.scoringPlayerId(match)||
+       key!==[match.id,match.legs.length,match.visits.length,match.currentPlayerIndex].join(':')||
+       !Number.isInteger(count)||count<0||count>2||
+       (match.currentVisit?.darts.length??0)!==count||
+       !tips.length||match.currentVisit?.locked)return false;
+    this.addTips(deviceId,tips);
+    return true;
+  }
+
+  /** A new physical shaft with a bounded hidden-tip estimate.""")
+    patch(devices,
+      """  session.addTips(client.deviceId, tips);""",
+      """  const guarded=msg.tips.some((tip:any)=>tip?.visitGuard!==undefined);
+  if(guarded){
+    const g=msg.tips[0]?.visitGuard;
+    if(!g||typeof g.visitKey!=='string'||g.visitKey.length>180||
+       !Number.isInteger(g.expectedCount)||
+       !msg.tips.every((tip:any)=>tip?.visitGuard?.visitKey===g.visitKey&&
+         tip?.visitGuard?.expectedCount===g.expectedCount))return;
+    session.addGuardedTips(client.deviceId,tips,g.visitKey,g.expectedCount);
+    return;
+  }
+  session.addTips(client.deviceId, tips);""")
+
     (root/'src/client/public/dartline-build.txt').write_text(
       'dartline-v6.4-scene-arbitration-RC\n',
       encoding='utf-8')
