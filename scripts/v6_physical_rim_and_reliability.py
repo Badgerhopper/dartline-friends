@@ -111,7 +111,10 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
     patch(scorer,
       '        const recovered=idleTipRecovery.current.observe(relaxed.tips,Date.now());',
       """        outerMissConfirmation.current.filter(relaxed.tips,initialVisit,frame,Date.now());
-        const recovered=idleTipRecovery.current.observe(relaxed.tips,Date.now());""")
+        const recoveryNow=Date.now();
+        let recovered=idleTipRecovery.current.observe(relaxed.tips,recoveryNow);
+        if(!recovered.length && relaxed.tips.length)
+          recovered=idleTipRecovery.current.retryConfirmed(recoveryNow);""")
 
     # Takeout checks must exclude the very wall-mounted spares that scoring
     # filters out. Previously a spare outside the board could permanently
@@ -175,7 +178,7 @@ import { boardImpactRegion, strongNewPhysicalMiss, physicalBoardTipBatch, physic
 import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence';""")
     patch(runtime,
       'export type FrameInfo = {',
-      'export type FrameInfo = {\n  temporalPhoto?:TemporalFrame|null;')
+      'export type FrameInfo = {\n  temporalPhoto?:TemporalFrame|null;\n  photoCapturedAt?:number;')
     patch(runtime,
       '  function captureInputFrame() {',
       '  let evidenceCanvas:HTMLCanvasElement|null=null;\n  function captureInputFrame() {')
@@ -183,13 +186,14 @@ import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence
       '      captureInputFrame();',
       """      captureInputFrame();
       let temporalPhoto:TemporalFrame|null=null;
+      const photoCapturedAt=Date.now();
       try {
         if(!evidenceCanvas)evidenceCanvas=document.createElement('canvas');
         temporalPhoto=readTemporalCamera(video,evidenceCanvas);
       } catch { /* Optional photo evidence must never prevent model inference. */ }""")
     patch(runtime,
       '      onFrame({\n        keypoints,',
-      '      onFrame({\n        temporalPhoto,\n        keypoints,')
+      '      onFrame({\n        temporalPhoto,\n        photoCapturedAt,\n        keypoints,')
 
     # Motion recognition still ran expensive neural scans during retrieval
     # even though the publication guard discarded them. Keep the verifier
@@ -246,7 +250,7 @@ import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence
 
     patch(scorer,
       '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.reset();\n        photoTakeoutConfirm.current.reset();',
-      '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.startNextVisit();\n        temporalDartTracker.current.setRegion(visualBoardReturn.current.regionMask);\n        const nextReference=visualBoardReturn.current.emptyReference;\n        if(nextReference && msg.active && msg.dartsRecorded===0)temporalDartTracker.current.prime(nextReference);\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
+      '        temporalDartTracker.current.reset();\n        visualBoardReturn.current.startNextVisit();\n        temporalDartTracker.current.setRegion(visualBoardReturn.current.regionMask);\n        const nextReference=visualBoardReturn.current.emptyReference;\n        if(nextReference && msg.active && msg.dartsRecorded===0){\n          temporalDartTracker.current.prime(nextReference);\n          sceneGate.current.prime(msg.key,nextReference);\n        }\n        fastBoardClear.current.reset();\n        takeoutScene.current.reset();\n        photoTakeoutConfirm.current.reset();')
     patch(scorer,
       '  const lastLocatedPhotoFrame = useRef<unknown>(null);',
       '  const lastLocatedPhotoFrame = useRef<unknown>(null);\n  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);')
@@ -275,6 +279,7 @@ import {readTemporalCamera,type TemporalFrame} from '../lib/temporalDartEvidence
                   transformPoint(undistortNormalizedPoint([x,y],lens),matrix));
                 visualBoardReturn.current.setRegion(region);
                 temporalDartTracker.current.setRegion(region);
+                sceneGate.current.setRegion(region);
               }
             }
             if(ctx.dartsRecorded>0 && completed.result.tips.some(t=>boardImpactRegion(t.x,t.y)!=='outside') &&
@@ -410,7 +415,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       '      inferenceMs: Math.round(vision.frame?.ms ?? 0),',
       """      inferenceMs: Math.round(vision.frame?.ms ?? 0),
       cameraTrace: [
-        'Scorer v6.4 | '+status+' | '+view,
+        'Scorer v6.4.1 | '+status+' | '+view,
         'Camera '+(vision.cameraActive?'on':'off')+' | scoring '+scoring,
         'Context '+(visitContext.current.key?'present':'MISSING')+
           ' | active '+visitContext.current.active+
@@ -460,12 +465,12 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       """      <details className="dartline-hud-slot-hint" style={{display:'block',textAlign:'left',padding:8}}>
         <summary>Camera Diagnostics · {cameraReport?.inferenceMs??0} ms AI</summary>
         <pre style={{whiteSpace:'pre-wrap',textAlign:'left',fontSize:12}}>{[
-          'HUD v6.4 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
+          'HUD v6.4.1 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
           cameraReport?'Health received | scoring '+cameraReport.scoring:'No camera health received',
           ...(cameraReport?.cameraTrace?.length?cameraReport.cameraTrace:['No scorer trace received'])
         ].join('\\n')}</pre>
         <button type="button" onClick={()=>void navigator.clipboard?.writeText([
-          'HUD v6.4 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
+          'HUD v6.4.1 | local turn '+ownsVisit+' | darts '+darts.length+' | auto-submit '+autoTakeout,
           cameraReport?'Health received | scoring '+cameraReport.scoring:'No camera health received',
           ...(cameraReport?.cameraTrace??['No scorer trace received'])
         ].join('\\n')).catch(()=>{})}>Copy diagnostics</button>
@@ -486,6 +491,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
            locatedVideoSource.current===vision.refs.video.current?.srcObject &&
            visualBoardReturn.current.confirmUserEmpty(image,0)){
           temporalDartTracker.current.prime(image);
+          sceneGate.current.prime(ctx.key,image);
           trace('Empty board reference confirmed by player');
         } else trace('Empty reference not captured: need active zero-dart visit and located live camera');
         return;
@@ -536,9 +542,14 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       '    meter.current.onTipsReceived(tips.length > 0);',
       """    if(tips.length && !takeoutExclusive.current && visitContext.current.active){
       const ctx=visitContext.current;
-      const photo=tips.some(t=>t.estimate)?deferredEstimate.current?.photo??latestCameraSnapshot.current:
-        vision.frameRef.current?.temporalPhoto??latestCameraSnapshot.current;
-      if(photo && !sceneGate.current.allow(ctx.key,ctx.dartsRecorded,tips,photo,Date.now())){
+      const estimated=tips.some(t=>t.estimate);
+      const capturedAt=estimated?deferredEstimate.current?.at:vision.frameRef.current?.photoCapturedAt;
+      if(!capturedAt||capturedAt<visitBoundaryAt.current){
+        trace('Score suppressed: inference belongs to an earlier visit');return;
+      }
+      const photo=estimated?deferredEstimate.current?.photo??null:
+        vision.frameRef.current?.temporalPhoto??null;
+      if(!photo || !sceneGate.current.allow(ctx.key,ctx.dartsRecorded,tips,photo,Date.now())){
         trace('Score suppressed: same scene or awaiting score acknowledgment');return;
       }
     }
@@ -546,18 +557,20 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
     patch(scorer,
       '      scoringVisitKey.current=msg.active?msg.key:\'\';',
       """      scoringVisitKey.current=msg.active?msg.key:'';
+      if(old.key!==msg.key||old.active!==msg.active)visitBoundaryAt.current=Date.now();
       const acknowledgedPhoto=sceneGate.current.acknowledge(msg.key,msg.dartsRecorded);
       if(acknowledgedPhoto)temporalDartTracker.current.prime(acknowledgedPhoto,msg.dartsRecorded);""")
     patch(scorer,
       '        lastGoodPose.current=null;',
-      '        lastGoodPose.current=null;\n        sceneGate.current.reset();')
+      '        lastGoodPose.current=null;\n        sceneGate.current.reset();\n        sceneGate.current.setRegion(null);')
     # Temporal estimates must not race the actual AI. Instead preserve
     # their provisional arrival and allow the AI an independent opportunity
     # to score it. If count advances, discard this estimate.
     patch(scorer,
       '  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);',
       """  const lastGoodPose=useRef<typeof vision.frameRef.current>(null);
-  const deferredEstimate=useRef<{key:string;count:number;at:number;tip:BoardTip;photo:TemporalFrame}|null>(null);""")
+  const deferredEstimate=useRef<{key:string;count:number;at:number;tip:BoardTip;photo:TemporalFrame}|null>(null);
+  const visitBoundaryAt=useRef(0);""")
     patch(scorer,
       '        lastGoodPose.current=null;',
       '        lastGoodPose.current=null;\n        deferredEstimate.current=null;')
@@ -617,6 +630,16 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
       """          sceneGate.current.prime(ctx.key,image);
           trace('Empty reference acquired from located scan and live video');""")
 
+    # A stale image cannot authorize an occupied-to-empty override. Require
+    # the exact inference photo to still match the previously verified board.
+    patch(scorer,
+      """        const action=fastBoardClear.current.finish(token, Date.now(),
+          onBoardTips.length ? 'occupied' : 'empty');""",
+      """        if(onBoardTips.length && (!frame.temporalPhoto ||
+            !visualBoardReturn.current.matchesCurrentEmpty(frame.temporalPhoto,3)))
+          fastBoardClear.current.invalidatePhotoClear();
+        const action=fastBoardClear.current.finish(token, Date.now(),
+          onBoardTips.length ? 'occupied' : 'empty');""")
     # The wire count guard makes delayed ordinary model reports subject
     # to the same authoritative visit boundary as estimated hits.
     patch(types,
@@ -664,7 +687,7 @@ import {BOARD_CENTER,BOARD_MAX,boardRadii} from '../../shared/boardGeometry';"""
   session.addTips(client.deviceId, tips);""")
 
     (root/'src/client/public/dartline-build.txt').write_text(
-      'dartline-v6.4-scene-arbitration-RC\n',
+      'dartline-v6.4.1-acknowledged-recovery-RC\n',
       encoding='utf-8')
     print('DartLine v6 DRAFT physical board-only MISS recognition enabled')
 

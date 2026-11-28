@@ -156,3 +156,15 @@ describe('fast independent dart-removal verifier',()=>{
     expect(gate.claim(2420,true)).not.toBeNull();
   });
 });
+
+describe('fresh occupied image supersedes previous photo proof',()=>{
+ it('does not submit using an earlier clear image once a fresh occupied photo arrives',()=>{
+   const gate=new FastBoardClear();
+   gate.arm(true,1000,true);
+   gate.noteVisualClear(1800);
+   expect(gate.finish(gate.claim(2000,true)!,2000,'occupied')).toBe('send-empty');
+   gate.invalidatePhotoClear();
+   expect(gate.finish(gate.claim(2900,true)!,2900,'occupied')).toBe('send-occupied');
+   expect(gate.emptyReportsSent).toBe(0);
+ });
+});

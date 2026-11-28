@@ -64,10 +64,26 @@ function representative(candidate: Candidate): BoardTip {
 export class IdleTipRecovery {
   private candidates: Candidate[] = [];
   private lastScanAt = 0;
+  private lastRetryAt = 0;
 
   reset(): void {
     this.candidates = [];
     this.lastScanAt = 0;
+    this.lastRetryAt = 0;
+  }
+
+  /** An emitted candidate is not necessarily an accepted score. Scene
+   * arbitration, a busy socket or stale count can reject its first report.
+   * Retry only currently visible, independently confirmed tips, not a
+   * historical unmatched candidate; the shared scene gate and server
+   * count guard still decide whether this observation is a new dart. */
+  retryConfirmed(now:number):BoardTip[] {
+    if(!Number.isFinite(now)||now-this.lastScanAt>100||
+       now-this.lastRetryAt<1100)return [];
+    const confirmed=this.candidates.filter(c=>c.emitted&&c.missedFrames===0);
+    if(!confirmed.length)return [];
+    this.lastRetryAt=now;
+    return confirmed.map(representative);
   }
 
   observe(tips: readonly BoardTip[], now: number): BoardTip[] {

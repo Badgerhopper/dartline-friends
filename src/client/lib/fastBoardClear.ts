@@ -157,6 +157,9 @@ export class FastBoardClear {
     return 'send-empty';
   }
 
+  /** A fresh occupied frame supersedes any previous empty-photo proof. */
+  invalidatePhotoClear():void {this.photoClearUntil=0;}
+
   get isArmed(): boolean { return this.active; }
   get hasSeenDarts(): boolean { return this.seenOccupied; }
   get emptyReportsSent(): number { return this.emptySent; }

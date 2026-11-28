@@ -6,6 +6,8 @@ import type {BoardTip} from '../../src/shared/vision/types';
 import {TemporalDartTracker,type TemporalFrame} from '../../src/client/lib/temporalDartEvidence';
 import {scorePhysicalDart} from '../../src/client/lib/physicalBoardImpact';
 import {VisualBoardReturn} from '../../src/client/lib/visualBoardReturn';
+import {ScoringSceneGate} from '../../src/client/lib/rapidVisualScoring';
+import {FastBoardClear} from '../../src/client/lib/fastBoardClear';
 import {PhotoTakeoutConfirm} from '../../src/client/lib/photoTakeoutConfirm';
 
 /**
@@ -276,6 +278,60 @@ describe('camera reports -> server tracker -> match -> verified takeout -> next 
         expect(sent).toBe(2);
         expect(g.state().visits.length).toBe(turn+1);
         expect(g.darts()).toBe(0);
+      }
+    }finally{g.close();}
+  });
+  it('runs ten mixed model/estimate visits through the same scene guard and server with duplicate, delayed and retrieval reports',()=>{
+    const g=game(),scene=new ScoringSceneGate(),size=256;
+    const empty:TemporalFrame={width:size,height:size,data:new Uint8Array(size*size*4)};
+    for(let i=0;i<size*size;i++){
+      empty.data[i*4]=100;empty.data[i*4+1]=100;empty.data[i*4+2]=100;empty.data[i*4+3]=255;
+    }
+    const add=(f:TemporalFrame,x:number,y:number):TemporalFrame=>{
+      const out={...f,data:f.data.slice()};
+      for(let xx=x;xx<x+40;xx++)for(let yy=y-1;yy<=y+1;yy++){
+        const k=(yy*size+xx)*4;out.data[k]=220;out.data[k+1]=40;out.data[k+2]=150;
+      }
+      return out;
+    };
+    let now=Date.now();
+    const step=(ms=950)=>{now+=ms;vi.setSystemTime(now);return now;};
+    try{
+      for(let turn=0;turn<10;turn++){
+        const m=g.state(),key=[m.id,m.legs.length,m.visits.length,m.currentPlayerIndex].join(':');
+        const a=point(500000,220000),b=point(506000,220000),c=point(879000,500000);
+        const first=add(empty,70,80),second=add(first,75,86),third=add(second,150,160);
+        scene.prime(key,empty);
+        expect(scene.allow(key,0,[a],first,step())).toBe(true);
+        expect(g.session.addGuardedTips('phone-1',[a],key,0)).toBe(true);
+        expect(scene.acknowledge(key,1)).toBe(first);
+        // A new model coordinate for the same dart must not become a score.
+        expect(scene.allow(key,1,[point(650000,220000)],first,step())).toBe(false);
+        expect(g.session.addGuardedTips('phone-1',[b],key,0)).toBe(false);
+        expect(g.darts()).toBe(1);
+        // A genuine new close shaft may be accepted as an estimate.
+        expect(scene.allow(key,1,[b],second,step())).toBe(true);
+        expect(g.session.addEstimatedTip('phone-1',b,key,1)).toBe(true);
+        expect(scene.acknowledge(key,2)).toBe(second);
+        expect(scene.allow(key,2,[a,b],second,step())).toBe(false);
+        expect(scene.allow(key,2,[a,b,c],third,step())).toBe(true);
+        expect(g.session.addGuardedTips('phone-1',[a,b,c],key,2)).toBe(true);
+        scene.acknowledge(key,3);
+        expect(g.darts()).toBe(3);
+        expect(g.state().currentVisit!.darts[2].score.label).toBe('miss');
+        const clear=new FastBoardClear();
+        clear.arm(true,step(),true);
+        clear.noteRetrievalMotion();
+        let token=clear.claim(step(),true)!;
+        expect(clear.finish(token,now,'empty')).toBe('send-empty');
+        g.session.addTips('phone-1',[]);
+        expect(g.darts()).toBe(3);
+        token=clear.claim(step(),true)!;
+        expect(clear.finish(token,now,'empty')).toBe('send-empty');
+        g.session.addTips('phone-1',[]);
+        expect(g.state().visits).toHaveLength(turn+1);
+        expect(g.darts()).toBe(0);
+        expect(g.session.addGuardedTips('phone-1',[a],key,0)).toBe(false);
       }
     }finally{g.close();}
   });

@@ -165,11 +165,11 @@ function fitShape(pts:number[],w:number,h:number,changeFraction:number):Temporal
 }
 /** Reject global motion and hands, prefer thin elongated new darts. */
 export function detectTemporalDart(before:TemporalFrame,after:TemporalFrame,
-  accept?:(x:number,y:number)=>boolean):TemporalGuess|null {
+  accept?:(x:number,y:number)=>boolean,region:Uint8Array|null=null):TemporalGuess|null {
   if(before.width!==after.width||before.height!==after.height ||
      before.data.length!==before.width*before.height*4 ||
      after.data.length!==after.width*after.height*4)return null;
-  return detectFromDelta(before,delta(before,after),accept);
+  return detectFromDelta(before,delta(before,after,region?.length===before.width*before.height?region:null),accept);
 }
 function detectFromDelta(before:TemporalFrame,d:ReturnType<typeof delta>,
   accept?:(x:number,y:number)=>boolean):TemporalGuess|null {

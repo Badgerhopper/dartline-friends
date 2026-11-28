@@ -167,3 +167,28 @@ describe('one physical scene checkpoint shared by normal and estimated scoring',
    expect(gate.allow('v',1,[tip(530000)],a,4000)).toBe(false);
  });
 });
+
+describe('scene checkpoint release regressions',()=>{
+ it('ignores movement outside the physical board even if a model hallucinates an extra tip',()=>{
+   const gate=new ScoringSceneGate(),a=board(),b=board();shaft(a,80,90);shaft(b,80,90);shaft(b,25,15);
+   const roi=new Uint8Array(W*W);
+   for(let y=50;y<240;y++)for(let x=30;x<230;x++)roi[y*W+x]=1;
+   gate.setRegion(roi);
+   expect(gate.allow('v',0,[tip(500000)],a,1000)).toBe(true);
+   gate.acknowledge('v',1);
+   expect(gate.allow('v',1,[tip(500000),tip(650000)],b,3500)).toBe(false);
+ });
+ it('preserves the first accepted photo after same-scene retries',()=>{
+   const gate=new ScoringSceneGate(),a=board(),b=board();shaft(a);shaft(b);
+   expect(gate.allow('v',0,[tip(500000)],a,1000)).toBe(true);
+   expect(gate.allow('v',0,[tip(500000)],b,1750)).toBe(true);
+   expect(gate.acknowledge('v',1)).toBe(a);
+ });
+ it('can reconsider an actual new scene after the prior report times out',()=>{
+   const gate=new ScoringSceneGate(),a=board(),b=board();shaft(a);shaft(b);shaft(b,60,140);
+   expect(gate.allow('v',0,[tip(500000)],a,1000)).toBe(true);
+   expect(gate.allow('v',0,[tip(500000)],a,1750)).toBe(true);
+   expect(gate.allow('v',0,[tip(500000),tip(650000)],b,2700)).toBe(true);
+   expect(gate.acknowledge('v',2)).toBe(b);
+ });
+});

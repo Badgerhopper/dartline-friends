@@ -125,3 +125,18 @@ describe('DartLine fallback for throws with NO motion trigger',()=>{
     expect(gate.observe([tip(550300)],12000)).toHaveLength(1);
   });
 });
+
+describe('retry after downstream arbitration or a lost socket report',()=>{
+ it('reoffers still-visible confirmed tips, not absent historical tips',()=>{
+   const gate=new IdleTipRecovery();
+   gate.observe([tip(560000)],1000);
+   expect(gate.observe([tip(560500)],2200)).toHaveLength(1);
+   expect(gate.observe([tip(560500)],3400)).toEqual([]);
+   expect(gate.retryConfirmed(3400)).toHaveLength(1);
+   expect(gate.retryConfirmed(3401)).toEqual([]);
+   gate.observe([],4600);
+   expect(gate.retryConfirmed(4600)).toEqual([]);
+   gate.reset();
+   expect(gate.retryConfirmed(5800)).toEqual([]);
+ });
+});

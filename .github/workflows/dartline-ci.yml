@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Compile full app and run all unit tests
-        run: docker build --build-arg RUN_TESTS=1 --progress=plain -t dartline-verified .
+        run: docker build --build-arg RUN_TESTS=1 --build-arg RUN_BROWSER_TESTS=1 --progress=plain -t dartline-verified .
       - name: Smoke-test production server startup and HTTP health
         shell: bash
         run: |
