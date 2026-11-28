@@ -174,10 +174,20 @@ export class ScoringSceneGate {
       // scene bypass the guard before the server's count catches up.
       // After the short wait, retry only the same observation, or a
       // genuinely changed picture.
-      if(!this.arrival(p.frame,photo,tips.length>p.tips.length)&&
-         !sameTipSet(p.tips,tips)&&now-p.at<1600)return false;
+      if(this.arrival(p.frame,photo,tips.length>p.tips.length)||
+         !sameTipSet(p.tips,tips)){
+        // A genuinely later scene may be reconsidered after the original
+        // slot is acknowledged. If the earlier report was rejected, allow
+        // a new attempt after a bounded timeout, preserving progress.
+        if(now-p.at<1600)return false;
+        this.pending=null;
+      }
     }
-    this.pending={frame:photo,count,at:now,tips:tips.map(t=>({...t}))};
+    // Preserve the exact first scene for this slot. A subsequent callback
+    // may see a different physical dart before the acknowledgment arrives.
+    // Do not replace the accepted-photo checkpoint with that later scene.
+    if(!this.pending)this.pending={frame:photo,count,at:now,tips:tips.map(t=>({...t}))};
+    else this.pending={...this.pending,at:now};
     return true;
   }
 }
