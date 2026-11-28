@@ -1,5 +1,5 @@
 import type { BoardTip } from '../../shared/vision/types';
-import type { TemporalFrame } from './temporalDartEvidence';
+import { detectTemporalDart, type TemporalFrame } from './temporalDartEvidence';
 
 /**
  * The original server matches known physical tips one-to-one. This is a
@@ -127,4 +127,55 @@ export class RapidVisualRecovery {
     if(this.fastRemaining>0)this.fastRemaining--;
   }
   get pendingFastProbes():number{return this.fastRemaining;}
+}
+
+/**
+ * One accepted camera scene is one scoring checkpoint, regardless of whether
+ * a model tip or shaft estimate reached the server first. All automatic
+ * positive reports in a single-camera visit share this gate. A coordinate
+ * wobble by itself is never a new throw. A changed photo with additional
+ * model tips or a new elongated shape remains eligible, including close hits.
+ */
+export class ScoringSceneGate {
+  private key='';
+  private count=0;
+  private accepted:TemporalFrame|null=null;
+  private pending:{frame:TemporalFrame;count:number;at:number;tips:BoardTip[]}|null=null;
+  reset():void {this.key='';this.count=0;this.accepted=null;this.pending=null;}
+  acknowledge(key:string,count:number):void {
+    if(key!==this.key||count<this.count){this.reset();this.key=key;this.count=count;return;}
+    if(count>this.count){
+      if(this.pending&&this.pending.count===this.count)this.accepted=this.pending.frame;
+      this.pending=null;this.count=count;
+    }
+  }
+  prime(key:string,frame:TemporalFrame):void {
+    if(key!==this.key){this.reset();this.key=key;}
+    if(this.count===0&&!this.pending)this.accepted=frame;
+  }
+  private arrival(before:TemporalFrame,after:TemporalFrame,moreTips:boolean):boolean {
+    const changed=boardImageChangedFraction(before,after);
+    // Strong silhouette evidence is independent of tip separation. A
+    // substantial change with a greater tip count covers less distinct
+    // shapes and a temporarily hidden shaft. Noise alone is not a throw.
+    return Boolean(detectTemporalDart(before,after)) ||
+      (moreTips&&changed>=0.0015&&changed<0.12);
+  }
+  allow(key:string,count:number,tips:BoardTip[],photo:TemporalFrame|null,now:number):boolean {
+    this.acknowledge(key,count);
+    if(!key||!tips.length||count>=3||!photo||!Number.isFinite(now))return false;
+    if(this.accepted&&!this.arrival(this.accepted,photo,tips.length>count))return false;
+    if(this.pending){
+      const p=this.pending;
+      if(now-p.at<650)return false;
+      // Never let an alternate interpretation of one unacknowledged
+      // scene bypass the guard before the server's count catches up.
+      // After the short wait, retry only the same observation, or a
+      // genuinely changed picture.
+      if(!this.arrival(p.frame,photo,tips.length>p.tips.length)&&
+         !sameTipSet(p.tips,tips)&&now-p.at<1600)return false;
+    }
+    this.pending={frame:photo,count,at:now,tips:tips.map(t=>({...t}))};
+    return true;
+  }
 }
