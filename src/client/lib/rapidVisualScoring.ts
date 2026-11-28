@@ -23,18 +23,22 @@ function median(data:number[]):number {
   return data[data.length>>1]??0;
 }
 
-export function boardImageChangedFraction(a:TemporalFrame,b:TemporalFrame):number {
+export function boardImageChangedFraction(a:TemporalFrame,b:TemporalFrame,region:Uint8Array|null=null):number {
   if(a.width!==b.width || a.height!==b.height ||
     a.data.length!==b.data.length || a.data.length!==a.width*a.height*4) return 1;
   const total=a.width*a.height, r:number[]=[],g:number[]=[],bl:number[]=[];
   const A=a.data,B=b.data;
+  if(region?.length!==total)region=null;
   for(let i=0;i<total;i+=37){
+    if(region&&!region[i])continue;
     const k=4*i;
     r.push(B[k]-A[k]);g.push(B[k+1]-A[k+1]);bl.push(B[k+2]-A[k+2]);
   }
   const dr=median(r),dg=median(g),db=median(bl);
-  let changed=0;
+  let changed=0,sampled=0;
   for(let i=0;i<total;i++){
+    if(region&&!region[i])continue;
+    sampled++;
     const k=4*i;
     if(Math.max(
       Math.abs(B[k]-A[k]-dr),
@@ -42,7 +46,7 @@ export function boardImageChangedFraction(a:TemporalFrame,b:TemporalFrame):numbe
       Math.abs(B[k+2]-A[k+2]-db)
     )>26)changed++;
   }
-  return changed/total;
+  return sampled?changed/sampled:1;
 }
 
 /** Exact one-to-one positional matching with jitter tolerance. This must
@@ -140,7 +144,9 @@ export class ScoringSceneGate {
   private key='';
   private count=0;
   private accepted:TemporalFrame|null=null;
-  private pending:{frame:TemporalFrame;count:number;at:number;tips:BoardTip[]}|null=null;
+  private pending:{frame:TemporalFrame;count:number;at:number;firstAt:number;tips:BoardTip[]}|null=null;
+  private region:Uint8Array|null=null;
+  setRegion(region:Uint8Array|null):void {this.region=region;}
   reset():void {this.key='';this.count=0;this.accepted=null;this.pending=null;}
   acknowledge(key:string,count:number):TemporalFrame|null {
     if(key!==this.key||count<this.count){this.reset();this.key=key;this.count=count;return null;}
@@ -156,11 +162,11 @@ export class ScoringSceneGate {
     if(this.count===0&&!this.pending)this.accepted=frame;
   }
   private arrival(before:TemporalFrame,after:TemporalFrame,moreTips:boolean):boolean {
-    const changed=boardImageChangedFraction(before,after);
+    const changed=boardImageChangedFraction(before,after,this.region);
     // Strong silhouette evidence is independent of tip separation. A
     // substantial change with a greater tip count covers less distinct
     // shapes and a temporarily hidden shaft. Noise alone is not a throw.
-    return Boolean(detectTemporalDart(before,after)) ||
+    return Boolean(detectTemporalDart(before,after,undefined,this.region)) ||
       (moreTips&&changed>=0.0015&&changed<0.12);
   }
   allow(key:string,count:number,tips:BoardTip[],photo:TemporalFrame|null,now:number):boolean {
@@ -179,14 +185,14 @@ export class ScoringSceneGate {
         // A genuinely later scene may be reconsidered after the original
         // slot is acknowledged. If the earlier report was rejected, allow
         // a new attempt after a bounded timeout, preserving progress.
-        if(now-p.at<1600)return false;
+        if(now-p.firstAt<1600)return false;
         this.pending=null;
       }
     }
     // Preserve the exact first scene for this slot. A subsequent callback
     // may see a different physical dart before the acknowledgment arrives.
     // Do not replace the accepted-photo checkpoint with that later scene.
-    if(!this.pending)this.pending={frame:photo,count,at:now,tips:tips.map(t=>({...t}))};
+    if(!this.pending)this.pending={frame:photo,count,at:now,firstAt:now,tips:tips.map(t=>({...t}))};
     else this.pending={...this.pending,at:now};
     return true;
   }
